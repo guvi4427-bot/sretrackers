@@ -722,13 +722,20 @@ export default function FeedClient() {
   async function toggleLike(postId: string, isLiked: boolean) {
     if (isGuest) { showLoginPrompt('like posts'); return; }
     try {
-      if (isLiked) {
-        await fetch(`/api/posts/${postId}/like`, { method: 'DELETE' });
+      const res = isLiked
+        ? await fetch(`/api/posts/${postId}/like`, { method: 'DELETE' })
+        : await fetch(`/api/posts/${postId}/like`, { method: 'POST' });
+      if (res.ok) {
+        fetchPosts();
       } else {
-        await fetch(`/api/posts/${postId}/like`, { method: 'POST' });
+        const d = await res.json().catch(() => ({}));
+        if (d.error === 'Unauthorized') {
+          toast.error('Please sign in to like posts');
+        }
       }
-      fetchPosts();
-    } catch {}
+    } catch {
+      toast.error('Network error — please try again');
+    }
   }
 
   async function toggleBookmark(postId: string, isBookmarked: boolean) {
@@ -746,13 +753,20 @@ export default function FeedClient() {
   async function toggleRepost(postId: string, isReposted: boolean) {
     if (isGuest) { showLoginPrompt('repost'); return; }
     try {
-      if (isReposted) {
-        await fetch(`/api/posts/${postId}/repost`, { method: 'DELETE' });
+      const res = isReposted
+        ? await fetch(`/api/posts/${postId}/repost`, { method: 'DELETE' })
+        : await fetch(`/api/posts/${postId}/repost`, { method: 'POST' });
+      if (res.ok) {
+        fetchPosts();
       } else {
-        await fetch(`/api/posts/${postId}/repost`, { method: 'POST' });
+        const d = await res.json().catch(() => ({}));
+        if (d.error === 'Unauthorized') {
+          toast.error('Please sign in to repost');
+        }
       }
-      fetchPosts();
-    } catch {}
+    } catch {
+      toast.error('Network error — please try again');
+    }
   }
 
   // Like/repost for live updates (ContentEntry, FitnessWorkoutLog, FitnessWeightLog, LearningTopic)
@@ -760,26 +774,40 @@ export default function FeedClient() {
     if (isGuest) { showLoginPrompt('like'); return; }
     try {
       const url = `/api/live-updates/${updateId}/like?entityType=${encodeURIComponent(entityType)}`;
-      if (isLiked) {
-        await fetch(url, { method: 'DELETE' });
+      const res = isLiked
+        ? await fetch(url, { method: 'DELETE' })
+        : await fetch(url, { method: 'POST' });
+      if (res.ok) {
+        fetchLiveUpdates();
       } else {
-        await fetch(url, { method: 'POST' });
+        const d = await res.json().catch(() => ({}));
+        if (d.error === 'Unauthorized') {
+          toast.error('Please sign in to like');
+        }
       }
-      fetchLiveUpdates();
-    } catch {}
+    } catch {
+      toast.error('Network error — please try again');
+    }
   }
 
   async function toggleLiveUpdateRepost(updateId: string, entityType: string, isReposted: boolean) {
     if (isGuest) { showLoginPrompt('repost'); return; }
     try {
       const url = `/api/live-updates/${updateId}/repost?entityType=${encodeURIComponent(entityType)}`;
-      if (isReposted) {
-        await fetch(url, { method: 'DELETE' });
+      const res = isReposted
+        ? await fetch(url, { method: 'DELETE' })
+        : await fetch(url, { method: 'POST' });
+      if (res.ok) {
+        fetchLiveUpdates();
       } else {
-        await fetch(url, { method: 'POST' });
+        const d = await res.json().catch(() => ({}));
+        if (d.error === 'Unauthorized') {
+          toast.error('Please sign in to repost');
+        }
       }
-      fetchLiveUpdates();
-    } catch {}
+    } catch {
+      toast.error('Network error — please try again');
+    }
   }
 
   async function toggleLiveUpdateBookmark(updateId: string, entityType: string, isBookmarked: boolean) {
@@ -817,8 +845,15 @@ export default function FeedClient() {
         setPosts(prev => prev.map(p => p.id === postId ? { ...p, stats: { ...p.stats, comments: (p.stats?.comments || p._count?.comments || 0) + 1 } } : p));
         toast.success('+3 XP');
         window.dispatchEvent(new CustomEvent('xp-updated')); window.dispatchEvent(new CustomEvent('notification-updated'));
+      } else {
+        const d = await r.json().catch(() => ({}));
+        if (d.error === 'Unauthorized') {
+          toast.error('Please sign in to comment');
+        }
       }
-    } catch {}
+    } catch {
+      toast.error('Network error — please try again');
+    }
   }
 
   async function loadComments(postId: string) {

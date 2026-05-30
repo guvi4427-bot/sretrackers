@@ -274,11 +274,10 @@ export default function ShareToChatDialog({ isOpen, onClose, shareData }: ShareT
           </div>
 
           {/* External Share Buttons */}
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-3 gap-2">
             <Button
-              size="default"
               variant="outline"
-              className="text-sm h-12 px-4 font-medium"
+              className="text-xs h-10 px-2 font-medium"
               onClick={() => {
                 window.open(`https://www.reddit.com/submit?url=${encodeURIComponent(shareUrl)}&title=${encodeURIComponent(safeShareData.preview?.slice(0, 100) || 'Check this out')}`, '_blank');
               }}
@@ -287,9 +286,8 @@ export default function ShareToChatDialog({ isOpen, onClose, shareData }: ShareT
               Reddit
             </Button>
             <Button
-              size="default"
               variant="outline"
-              className="text-sm h-12 px-4 font-medium"
+              className="text-xs h-10 px-2 font-medium"
               onClick={() => {
                 window.open(`https://twitter.com/intent/tweet?url=${encodeURIComponent(shareUrl)}&text=${encodeURIComponent(safeShareData.preview?.slice(0, 100) || 'Check this out')}`, '_blank');
               }}
@@ -298,9 +296,8 @@ export default function ShareToChatDialog({ isOpen, onClose, shareData }: ShareT
               X
             </Button>
             <Button
-              size="default"
               variant="outline"
-              className="text-sm h-12 px-4 font-medium"
+              className="text-xs h-10 px-2 font-medium"
               onClick={() => {
                 window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent((safeShareData.preview?.slice(0, 100) || 'Check this out') + ' ' + shareUrl)}`, '_blank');
               }}

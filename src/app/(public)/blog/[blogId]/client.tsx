@@ -386,7 +386,7 @@ export default function BlogDetailClient() {
                 <ExternalLink size={16} className="mr-2" /> Open in New Tab
               </Button>
               {/* Social share buttons */}
-              <div className="grid grid-cols-4 gap-2">
+              <div className="grid grid-cols-2 gap-2">
                 <Button variant="outline" className="text-xs h-10 px-2 font-medium" onClick={() => window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(blog.title)}&url=${encodeURIComponent(shareUrl)}`, '_blank')}>
                   X
                 </Button>
