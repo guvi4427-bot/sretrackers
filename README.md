@@ -666,6 +666,6 @@ Building intelligent ecosystems for growth, learning, creativity, and human pote
 
 <div align="center">
 
-**Start when you're ready. Restart when you fall. Explore without limits.**
+**Start when you're ready. Restart when you fail. Explore without limits.**
 
 </div>
