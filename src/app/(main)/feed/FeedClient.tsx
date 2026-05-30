@@ -111,6 +111,7 @@ export default function FeedClient() {
   const initialLoadRef = useRef(false);
   // Guard: prevent fetchLiveUpdates from unmounting comment input on mobile
   const isCommentingRef = useRef(false);
+  const liveUpdateCommentInputRef = useRef<HTMLInputElement | null>(null);
 
   // Live Status data (own data for Live tab)
   const [feedWeightLogs, setFeedWeightLogs] = useState<any[]>([]);
@@ -308,7 +309,7 @@ export default function FeedClient() {
             {liveUpdateCommentTarget === update.id && (
               <div className="mt-3 pt-3 border-t border-border/20 space-y-2">
                 <div className="flex gap-2">
-                  <Input value={liveUpdateCommentTarget === update.id ? liveUpdateCommentText : ''} onChange={e => setLiveUpdateCommentText(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') addLiveUpdateComment(update.id, update.entityType || 'content_entry'); }} placeholder="Write a comment..." className="bg-accent border-border text-foreground text-xs h-8" />
+                  <Input ref={liveUpdateCommentInputRef} value={liveUpdateCommentTarget === update.id ? liveUpdateCommentText : ''} onChange={e => setLiveUpdateCommentText(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') addLiveUpdateComment(update.id, update.entityType || 'content_entry'); }} placeholder="Write a comment..." className="bg-accent border-border text-foreground text-xs h-8" autoFocus />
                   <Button onClick={() => addLiveUpdateComment(update.id, update.entityType || 'content_entry')} size="icon" className="gradient-blue shrink-0 h-8 w-8" disabled={!liveUpdateCommentText.trim()}><Send size={12} /></Button>
                 </div>
                 {(liveUpdateComments[update.id] || []).map((c: any) => (
@@ -483,7 +484,7 @@ export default function FeedClient() {
             {liveUpdateCommentTarget === update.id && (
               <div className="mt-3 pt-3 border-t border-border/20 space-y-2">
                 <div className="flex gap-2">
-                  <Input value={liveUpdateCommentTarget === update.id ? liveUpdateCommentText : ''} onChange={e => setLiveUpdateCommentText(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') addLiveUpdateComment(update.id, update.entityType || (update.subType === 'weight' ? 'fitness_weight' : 'fitness_workout')); }} placeholder="Write a comment..." className="bg-accent border-border text-foreground text-xs h-8" />
+                  <Input ref={liveUpdateCommentInputRef} value={liveUpdateCommentTarget === update.id ? liveUpdateCommentText : ''} onChange={e => setLiveUpdateCommentText(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') addLiveUpdateComment(update.id, update.entityType || (update.subType === 'weight' ? 'fitness_weight' : 'fitness_workout')); }} placeholder="Write a comment..." className="bg-accent border-border text-foreground text-xs h-8" autoFocus />
                   <Button onClick={() => addLiveUpdateComment(update.id, update.entityType || (update.subType === 'weight' ? 'fitness_weight' : 'fitness_workout'))} size="icon" className="gradient-blue shrink-0 h-8 w-8" disabled={!liveUpdateCommentText.trim()}><Send size={12} /></Button>
                 </div>
                 {(liveUpdateComments[update.id] || []).map((c: any) => (
@@ -592,7 +593,7 @@ export default function FeedClient() {
             {liveUpdateCommentTarget === update.id && (
               <div className="mt-3 pt-3 border-t border-border/20 space-y-2">
                 <div className="flex gap-2">
-                  <Input value={liveUpdateCommentTarget === update.id ? liveUpdateCommentText : ''} onChange={e => setLiveUpdateCommentText(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') addLiveUpdateComment(update.id, update.entityType || 'learning_topic'); }} placeholder="Write a comment..." className="bg-accent border-border text-foreground text-xs h-8" />
+                  <Input ref={liveUpdateCommentInputRef} value={liveUpdateCommentTarget === update.id ? liveUpdateCommentText : ''} onChange={e => setLiveUpdateCommentText(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') addLiveUpdateComment(update.id, update.entityType || 'learning_topic'); }} placeholder="Write a comment..." className="bg-accent border-border text-foreground text-xs h-8" autoFocus />
                   <Button onClick={() => addLiveUpdateComment(update.id, update.entityType || 'learning_topic')} size="icon" className="gradient-blue shrink-0 h-8 w-8" disabled={!liveUpdateCommentText.trim()}><Send size={12} /></Button>
                 </div>
                 {(liveUpdateComments[update.id] || []).map((c: any) => (
@@ -974,6 +975,8 @@ export default function FeedClient() {
         setLiveUpdateComments(p => ({ ...p, [updateId]: [comment, ...(p[updateId] || [])] }));
         setLiveUpdateCommentText('');
         toast.success('+3 XP');
+        // Re-focus input to keep keyboard open on mobile after posting
+        setTimeout(() => { liveUpdateCommentInputRef.current?.focus(); }, 50);
         // Delay dispatching XP event and releasing the commenting guard
         // to keep the input mounted on mobile after posting
         setTimeout(() => {

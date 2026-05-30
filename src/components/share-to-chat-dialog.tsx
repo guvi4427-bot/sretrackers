@@ -218,8 +218,7 @@ export default function ShareToChatDialog({ isOpen, onClose, shareData }: ShareT
   return (
     <Dialog open={isOpen} onOpenChange={(open) => { if (!open) { handleClose(); } }}>
       <DialogContent
-        className="!p-4 !sm:p-4 box-border max-h-[85vh] overflow-y-auto overflow-x-hidden !w-[calc(100vw-32px)] !max-w-[400px]"
-        style={{ width: 'min(400px, calc(100vw - 32px))', maxWidth: '400px' }}
+        className="!p-3 box-border max-h-[85vh] overflow-y-auto overflow-x-hidden !max-w-[340px]"
       >
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
@@ -275,41 +274,40 @@ export default function ShareToChatDialog({ isOpen, onClose, shareData }: ShareT
             </button>
           </div>
 
-          {/* Share platform buttons — compact icon+text row, no overflow possible */}
-          <div className="flex gap-1.5 w-full" style={{ minWidth: 0 }}>
+          {/* Share platform buttons — vertical stack, zero overflow risk */}
+          <div className="flex flex-col gap-1 w-full">
             <button
               type="button"
-              className="flex-1 flex items-center justify-center h-8 rounded-md border border-border bg-background text-[11px] text-foreground hover:bg-accent transition-colors overflow-hidden"
-              style={{ minWidth: 0, maxWidth: '33.33%' }}
-              onClick={() => {
-                window.open(`https://www.reddit.com/submit?url=${encodeURIComponent(shareUrl)}&title=${encodeURIComponent(safeShareData.preview?.slice(0, 100) || 'Check this out')}`, '_blank');
-              }}
-              disabled={!shareUrl}
-            >
-              <span className="truncate px-1">Reddit</span>
-            </button>
-            <button
-              type="button"
-              className="flex-1 flex items-center justify-center h-8 rounded-md border border-border bg-background text-[11px] text-foreground hover:bg-accent transition-colors overflow-hidden"
-              style={{ minWidth: 0, maxWidth: '33.33%' }}
-              onClick={() => {
-                window.open(`https://twitter.com/intent/tweet?url=${encodeURIComponent(shareUrl)}&text=${encodeURIComponent(safeShareData.preview?.slice(0, 100) || 'Check this out')}`, '_blank');
-              }}
-              disabled={!shareUrl}
-            >
-              <span className="truncate px-1">X</span>
-            </button>
-            <button
-              type="button"
-              className="flex-1 flex items-center justify-center h-8 rounded-md border border-border bg-background text-[11px] text-foreground hover:bg-accent transition-colors overflow-hidden"
-              style={{ minWidth: 0, maxWidth: '33.33%' }}
+              className="w-full flex items-center justify-center h-8 rounded-md border border-border bg-background text-xs text-foreground hover:bg-accent transition-colors overflow-hidden"
               onClick={() => {
                 window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent((safeShareData.preview?.slice(0, 100) || 'Check this out') + ' ' + shareUrl)}`, '_blank');
               }}
               disabled={!shareUrl}
             >
-              <span className="truncate px-1">WA</span>
+              WhatsApp
             </button>
+            <div className="flex gap-1 w-full">
+              <button
+                type="button"
+                className="flex-1 flex items-center justify-center h-8 rounded-md border border-border bg-background text-xs text-foreground hover:bg-accent transition-colors overflow-hidden"
+                onClick={() => {
+                  window.open(`https://twitter.com/intent/tweet?url=${encodeURIComponent(shareUrl)}&text=${encodeURIComponent(safeShareData.preview?.slice(0, 100) || 'Check this out')}`, '_blank');
+                }}
+                disabled={!shareUrl}
+              >
+                X
+              </button>
+              <button
+                type="button"
+                className="flex-1 flex items-center justify-center h-8 rounded-md border border-border bg-background text-xs text-foreground hover:bg-accent transition-colors overflow-hidden"
+                onClick={() => {
+                  window.open(`https://www.reddit.com/submit?url=${encodeURIComponent(shareUrl)}&title=${encodeURIComponent(safeShareData.preview?.slice(0, 100) || 'Check this out')}`, '_blank');
+                }}
+                disabled={!shareUrl}
+              >
+                Reddit
+              </button>
+            </div>
           </div>
 
           {activeSection === 'actions' && (
