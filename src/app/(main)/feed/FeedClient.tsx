@@ -109,6 +109,8 @@ export default function FeedClient() {
   const [liveUpdateCommentTarget, setLiveUpdateCommentTarget] = useState<string|null>(null);
   const abortRef = useRef<AbortController|null>(null);
   const initialLoadRef = useRef(false);
+  // Guard: prevent fetchLiveUpdates from unmounting comment input on mobile
+  const isCommentingRef = useRef(false);
 
   // Live Status data (own data for Live tab)
   const [feedWeightLogs, setFeedWeightLogs] = useState<any[]>([]);
@@ -173,8 +175,14 @@ export default function FeedClient() {
   useEffect(() => { fetchPosts(true); fetchLiveData(); fetchLiveUpdates(); }, [fetchPosts, fetchLiveData, fetchLiveUpdates]);
 
   // Listen for xp-updated and sharing-updated events to refresh live data
+  // Skip fetchLiveUpdates when user is actively commenting to prevent unmounting input on mobile
   useEffect(() => {
-    const handler = () => { fetchLiveData(); fetchLiveUpdates(); };
+    const handler = () => {
+      fetchLiveData();
+      if (!isCommentingRef.current) {
+        fetchLiveUpdates();
+      }
+    };
     window.addEventListener('xp-updated', handler);
     window.addEventListener('sharing-updated', handler);
     return () => { window.removeEventListener('xp-updated', handler); window.removeEventListener('sharing-updated', handler); };
@@ -952,6 +960,8 @@ export default function FeedClient() {
   async function addLiveUpdateComment(updateId: string, entityType: string) {
     if (isGuest) { showLoginPrompt('comment'); return; }
     if (!liveUpdateCommentText.trim()) return;
+    // Set ref to prevent fetchLiveUpdates from unmounting input during comment
+    isCommentingRef.current = true;
     try {
       const r = await fetch(`/api/live-updates/${updateId}/comments?entityType=${encodeURIComponent(entityType)}`, {
         method: 'POST',
@@ -964,19 +974,24 @@ export default function FeedClient() {
         setLiveUpdateComments(p => ({ ...p, [updateId]: [comment, ...(p[updateId] || [])] }));
         setLiveUpdateCommentText('');
         toast.success('+3 XP');
-        // Defer XP event to avoid triggering fetchLiveUpdates() which unmounts the focused input on mobile
+        // Delay dispatching XP event and releasing the commenting guard
+        // to keep the input mounted on mobile after posting
         setTimeout(() => {
           window.dispatchEvent(new CustomEvent('xp-updated'));
           window.dispatchEvent(new CustomEvent('notification-updated'));
+          // Release guard after event handlers have run
+          setTimeout(() => { isCommentingRef.current = false; }, 1000);
         }, 500);
       } else {
         const d = await r.json().catch(() => ({}));
         if (d.error === 'Unauthorized') {
           toast.error('Please sign in to comment');
         }
+        isCommentingRef.current = false;
       }
     } catch {
       toast.error('Network error — please try again');
+      isCommentingRef.current = false;
     }
   }
 
@@ -984,8 +999,10 @@ export default function FeedClient() {
     if (isGuest) { showLoginPrompt('comment'); return; }
     if (liveUpdateCommentTarget === updateId) {
       setLiveUpdateCommentTarget(null);
+      isCommentingRef.current = false;
     } else {
       setLiveUpdateCommentTarget(updateId);
+      isCommentingRef.current = true;
       if (!liveUpdateComments[updateId]) {
         loadLiveUpdateComments(updateId, entityType);
       }

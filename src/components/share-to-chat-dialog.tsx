@@ -217,9 +217,10 @@ export default function ShareToChatDialog({ isOpen, onClose, shareData }: ShareT
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => { if (!open) { handleClose(); } }}>
-      <DialogContent className="sm:max-w-lg p-5 box-border max-h-[85vh] overflow-y-auto overflow-x-hidden w-full max-w-[min(560px,calc(100vw-32px))]">
-        {/* FIX 1: Constrained popup width — max-width: min(560px, calc(100vw - 32px)) */}
-        {/* FIX 4: Padding safety — p-5 box-border overflow-x-hidden */}
+      <DialogContent
+        className="!p-4 !sm:p-4 box-border max-h-[85vh] overflow-y-auto overflow-x-hidden !w-[calc(100vw-32px)] !max-w-[400px]"
+        style={{ width: 'min(400px, calc(100vw - 32px))', maxWidth: '400px' }}
+      >
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Share2 size={18} />
@@ -274,37 +275,40 @@ export default function ShareToChatDialog({ isOpen, onClose, shareData }: ShareT
             </button>
           </div>
 
-          {/* Share platform buttons — plain buttons, 3 equal columns, guaranteed no overflow */}
-          <div className="grid grid-cols-3 gap-1.5 w-full">
+          {/* Share platform buttons — compact icon+text row, no overflow possible */}
+          <div className="flex gap-1.5 w-full" style={{ minWidth: 0 }}>
             <button
               type="button"
-              className="flex items-center justify-center h-8 rounded-md border border-border bg-background text-[11px] text-foreground hover:bg-accent transition-colors min-w-0 overflow-hidden truncate px-1 disabled:opacity-50"
+              className="flex-1 flex items-center justify-center h-8 rounded-md border border-border bg-background text-[11px] text-foreground hover:bg-accent transition-colors overflow-hidden"
+              style={{ minWidth: 0, maxWidth: '33.33%' }}
               onClick={() => {
                 window.open(`https://www.reddit.com/submit?url=${encodeURIComponent(shareUrl)}&title=${encodeURIComponent(safeShareData.preview?.slice(0, 100) || 'Check this out')}`, '_blank');
               }}
               disabled={!shareUrl}
             >
-              Reddit
+              <span className="truncate px-1">Reddit</span>
             </button>
             <button
               type="button"
-              className="flex items-center justify-center h-8 rounded-md border border-border bg-background text-[11px] text-foreground hover:bg-accent transition-colors min-w-0 overflow-hidden truncate px-1 disabled:opacity-50"
+              className="flex-1 flex items-center justify-center h-8 rounded-md border border-border bg-background text-[11px] text-foreground hover:bg-accent transition-colors overflow-hidden"
+              style={{ minWidth: 0, maxWidth: '33.33%' }}
               onClick={() => {
                 window.open(`https://twitter.com/intent/tweet?url=${encodeURIComponent(shareUrl)}&text=${encodeURIComponent(safeShareData.preview?.slice(0, 100) || 'Check this out')}`, '_blank');
               }}
               disabled={!shareUrl}
             >
-              X
+              <span className="truncate px-1">X</span>
             </button>
             <button
               type="button"
-              className="flex items-center justify-center h-8 rounded-md border border-border bg-background text-[11px] text-foreground hover:bg-accent transition-colors min-w-0 overflow-hidden truncate px-1 disabled:opacity-50"
+              className="flex-1 flex items-center justify-center h-8 rounded-md border border-border bg-background text-[11px] text-foreground hover:bg-accent transition-colors overflow-hidden"
+              style={{ minWidth: 0, maxWidth: '33.33%' }}
               onClick={() => {
                 window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent((safeShareData.preview?.slice(0, 100) || 'Check this out') + ' ' + shareUrl)}`, '_blank');
               }}
               disabled={!shareUrl}
             >
-              WhatsApp
+              <span className="truncate px-1">WA</span>
             </button>
           </div>
 
