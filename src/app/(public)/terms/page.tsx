@@ -8,6 +8,18 @@ export const metadata: Metadata = {
   title: 'Terms & Conditions',
   description: `Read the Terms and Conditions for ${SITE_NAME}, the free gamified self-growth platform for fitness tracking, learning progression, and community.`,
   alternates: { canonical: `${CANONICAL_URL}/terms` },
+  openGraph: {
+    title: `Terms & Conditions — ${SITE_NAME}`,
+    description: `Read the Terms and Conditions for ${SITE_NAME}, the free gamified self-growth platform.`,
+    url: `${CANONICAL_URL}/terms`,
+    type: 'website',
+    siteName: SITE_NAME,
+  },
+  twitter: {
+    card: 'summary',
+    title: `Terms & Conditions — ${SITE_NAME}`,
+    description: `Read the Terms and Conditions for ${SITE_NAME}.`,
+  },
 };
 
 export default function TermsPage() {

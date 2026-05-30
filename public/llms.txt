@@ -1,26 +1,66 @@
 # SRE — Start • Restart • Explore
 
-> SRE is a self-growth ecosystem platform built around progression, accountability, consistency, and community-driven improvement. It unifies learning progression, fitness tracking, content creation journeys, social discovery, AI-assisted learning, and live updates into one platform.
+> SRE is a free gamified self-growth ecosystem platform built around progression, accountability, consistency, and community-driven improvement. It unifies learning progression, fitness tracking, content creation journeys, social discovery, AI-assisted learning, and live updates into one platform.
 
 ## What this platform does
-- Public progression feed: users share live learning, fitness, and content creation updates
-- Discover system: topic, post, user, and group discovery with hashtag-based search
-- Fitness tracking: log workouts, consistency streaks, and share progress
-- Content creator tracking: document creative journeys publicly
-- AI-assisted learning: guided topic exploration (preview for guests, full for members)
-- Community: profiles, groups, friends, progression-based communities
+- Learning tracker: create study topics, log entries, track progress with charts and AI tutoring
+- Fitness tracker: log workouts & meals, AI macro/burn estimation, weight progress charts
+- Content creation tracker: manage series, track pipeline stages (idea → drafting → editing → published), AI script reviews
+- Time management: smart task classification, focus timer, productivity insights, AI day planner
+- Social feed: share progress updates, follow friends, earn XP and achievements
+- Discover: topic, post, user, and group discovery with hashtag-based search
+- AI Hub: 5 specialized AI assistants (Learning, Fitness, Content, Time, Navigation) with conversation history
+- Gamification: 100+ achievements, XP system, levels, streaks, daily quests, leaderboards
+- Blog: read and write articles on self-growth, fitness, learning, and productivity
+- Groups & messaging: create/join groups, direct messages, community discussions
 
 ## Who it helps
-Students, self-improvement enthusiasts, beginners learning skills, fitness learners, content creators, productivity-focused individuals.
+Students, self-improvement enthusiasts, beginners learning skills, fitness learners, content creators, productivity-focused individuals, and anyone building consistent habits.
 
 ## Platform philosophy
-SRE stands for Start • Restart • Explore — representing starting new journeys, restarting abandoned goals, and exploring new domains.
+SRE stands for Start • Restart • Explore — representing starting new journeys, restarting abandoned goals, and exploring new domains. The platform is 100% free forever and supported by non-intrusive advertising.
 
-## Key URLs
+## AI Assistants
+- Learning AI: Study assistance, concept explanations, study plans, learning strategies
+- Fitness AI: Workout planning, nutrition advice, form tips, macro calculations
+- Content AI: Script writing, content strategy, platform optimization, creative ideas
+- Time AI: Task prioritization, focus techniques, scheduling, habit building
+- Navigator AI: Platform navigation, feature discovery, section guidance with clickable route links
+
+## Key Public URLs
 - Home: https://sretrack.vercel.app/
-- Feed: https://sretrack.vercel.app/feed
-- Discover: https://sretrack.vercel.app/discover
+- Landing: https://sretrack.vercel.app/landing
+- Feed (guest): https://sretrack.vercel.app/feed
+- Discover (guest): https://sretrack.vercel.app/discover
+- Blog: https://sretrack.vercel.app/blog
 - About: https://sretrack.vercel.app/about
+- Contact: https://sretrack.vercel.app/contact
 - Privacy Policy: https://sretrack.vercel.app/privacy
 - Terms: https://sretrack.vercel.app/terms
-- Contact: https://sretrack.vercel.app/contact
+- Community Guidelines: https://sretrack.vercel.app/community-guidelines
+
+## Key Authenticated URLs
+- Dashboard: /home
+- Learning: /learn
+- Fitness: /fitness
+- Content: /content
+- Time: /time
+- AI Hub: /ai-hub
+- Leaderboard: /leaderboard
+- Achievements: /achievements
+- Analytics: /analytics
+- Profile: /profile
+- Settings: /settings
+
+## Crawlability
+- robots.txt allows Googlebot, Bingbot, GPTBot, ClaudeBot, PerplexityBot, and other AI crawlers
+- Sitemap available at /sitemap.xml
+- Blog posts are dynamically included in sitemap
+- Public pages (feed, discover, blog, profiles) are accessible to crawlers via middleware bot detection
+- Structured data: WebSite, Organization, SoftwareApplication, BlogPosting schemas
+
+## Technical
+- Built with Next.js 15, React 19, Tailwind CSS, Prisma, Neon PostgreSQL
+- Deployed on Vercel
+- Uses server-side rendering for SEO-critical pages
+- Client-side hydration for interactive features

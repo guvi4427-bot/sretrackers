@@ -10,7 +10,7 @@ export const metadata: Metadata = {
     description: `Sign in to track your learning, fitness, and content creation progress.`,
     url: `${CANONICAL_URL}/login`,
   },
-  robots: { index: true, follow: true },
+  robots: { index: true, follow: true, googleBot: { index: true, follow: true } },
 };
 
 export default function LoginLayout({

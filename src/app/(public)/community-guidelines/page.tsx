@@ -8,6 +8,18 @@ export const metadata: Metadata = {
   title: 'Community Guidelines',
   description: `Read the Community Guidelines for ${SITE_NAME}. Help us maintain a supportive, respectful, and growth-oriented community for everyone.`,
   alternates: { canonical: `${CANONICAL_URL}/community-guidelines` },
+  openGraph: {
+    title: `Community Guidelines — ${SITE_NAME}`,
+    description: `Help us maintain a supportive, respectful, and growth-oriented community on ${SITE_NAME}.`,
+    url: `${CANONICAL_URL}/community-guidelines`,
+    type: 'website',
+    siteName: SITE_NAME,
+  },
+  twitter: {
+    card: 'summary',
+    title: `Community Guidelines — ${SITE_NAME}`,
+    description: `Help us maintain a supportive, respectful, and growth-oriented community.`,
+  },
 };
 
 export default function CommunityGuidelinesPage() {

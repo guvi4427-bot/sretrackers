@@ -11,6 +11,9 @@ import { GlassCard } from '@/components/glass-card';
 import { Logo } from '@/components/logo';
 import { cn } from '@/lib/utils';
 
+// NOTE: Metadata is exported from layout.tsx (server component)
+// This file is 'use client' so it cannot export metadata directly.
+
 const FEATURE_CARDS = [
   {
     icon: BookOpen,

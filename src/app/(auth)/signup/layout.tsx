@@ -10,7 +10,7 @@ export const metadata: Metadata = {
     description: `Create a free account and start your self-improvement journey.`,
     url: `${CANONICAL_URL}/signup`,
   },
-  robots: { index: true, follow: true },
+  robots: { index: true, follow: true, googleBot: { index: true, follow: true } },
 };
 
 export default function SignupLayout({

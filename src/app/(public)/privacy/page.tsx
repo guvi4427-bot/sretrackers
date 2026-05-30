@@ -8,6 +8,18 @@ export const metadata: Metadata = {
   title: 'Privacy Policy',
   description: `Read the Privacy Policy for ${SITE_NAME}. Learn how we collect, use, and protect your data on our gamified self-growth platform.`,
   alternates: { canonical: `${CANONICAL_URL}/privacy` },
+  openGraph: {
+    title: `Privacy Policy — ${SITE_NAME}`,
+    description: `Learn how ${SITE_NAME} collects, uses, and protects your data on our gamified self-growth platform.`,
+    url: `${CANONICAL_URL}/privacy`,
+    type: 'website',
+    siteName: SITE_NAME,
+  },
+  twitter: {
+    card: 'summary',
+    title: `Privacy Policy — ${SITE_NAME}`,
+    description: `Learn how ${SITE_NAME} collects, uses, and protects your data.`,
+  },
 };
 
 export default function PrivacyPolicyPage() {

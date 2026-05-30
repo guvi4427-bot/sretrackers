@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { SITE_NAME, SITE_URL } from "@/lib/site-config";
+import { SITE_NAME, SITE_URL, CANONICAL_URL } from "@/lib/site-config";
 import { db } from "@/lib/db";
 import { safeJsonParse } from "@/lib/utils";
 import BlogDetailClient from "./client";
@@ -48,7 +48,7 @@ export async function generateMetadata({ params }: { params: Promise<{ blogId: s
     const authorName = blog.user.profile?.name || blog.user.username;
     const excerpt = blog.excerpt || blog.content?.slice(0, 200);
     const tags = safeJsonParse<string[]>(blog.tags, []);
-    const blogUrl = `${SITE_URL}/blog/${blog.slug || blog.id}`;
+    const blogUrl = `${CANONICAL_URL}/blog/${blog.slug || blog.id}`;
 
     return {
       title: blog.title,
@@ -84,6 +84,92 @@ export async function generateMetadata({ params }: { params: Promise<{ blogId: s
   }
 }
 
-export default function BlogDetailPage({ params }: { params: Promise<{ blogId: string }> }) {
-  return <BlogDetailClient />;
+// BlogPosting JSON-LD structured data for Google rich results
+async function getBlogPostingSchema({ params }: { params: Promise<{ blogId: string }> }) {
+  try {
+    const { blogId } = await params;
+    
+    let blog = await db.blog.findUnique({
+      where: { id: blogId },
+      include: {
+        user: {
+          select: {
+            id: true,
+            username: true,
+            profile: { select: { name: true, avatarUrl: true } },
+          },
+        },
+      },
+    });
+
+    if (!blog) {
+      blog = await db.blog.findUnique({
+        where: { slug: blogId },
+        include: {
+          user: {
+            select: {
+              id: true,
+              username: true,
+              profile: { select: { name: true, avatarUrl: true } },
+            },
+          },
+        },
+      });
+    }
+
+    if (!blog || blog.status !== 'published') return null;
+
+    const authorName = blog.user.profile?.name || blog.user.username;
+    const blogUrl = `${CANONICAL_URL}/blog/${blog.slug || blog.id}`;
+    const tags = safeJsonParse<string[]>(blog.tags, []);
+
+    return {
+      "@context": "https://schema.org",
+      "@type": "BlogPosting",
+      headline: blog.title,
+      description: blog.excerpt || blog.content?.slice(0, 200),
+      image: blog.coverImage || `${SITE_URL}/og-image.png`,
+      url: blogUrl,
+      datePublished: blog.createdAt.toISOString(),
+      dateModified: blog.updatedAt.toISOString(),
+      author: {
+        "@type": "Person",
+        name: authorName,
+        url: `${SITE_URL}/profile/${blog.user.id}`,
+      },
+      publisher: {
+        "@type": "Organization",
+        name: SITE_NAME,
+        logo: {
+          "@type": "ImageObject",
+          url: `${SITE_URL}/logo.png`,
+        },
+      },
+      mainEntityOfPage: {
+        "@type": "WebPage",
+        "@id": blogUrl,
+      },
+      keywords: tags.join(", "),
+      wordCount: blog.content?.split(/\s+/).length || 0,
+      articleSection: tags[0] || "Self-Growth",
+    };
+  } catch {
+    return null;
+  }
+}
+
+export default async function BlogDetailPage({ params }: { params: Promise<{ blogId: string }> }) {
+  const schema = await getBlogPostingSchema({ params });
+
+  return (
+    <>
+      {schema && (
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(schema) }}
+        />
+      )}
+      <BlogDetailClient />
+    </>
+  );
 }
