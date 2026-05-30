@@ -218,9 +218,10 @@ export default function ShareToChatDialog({ isOpen, onClose, shareData }: ShareT
   return (
     <Dialog open={isOpen} onOpenChange={(open) => { if (!open) { handleClose(); } }}>
       <DialogContent
-        className="!p-3 box-border max-h-[85vh] overflow-y-auto overflow-x-hidden !max-w-[340px]"
+        style={{ maxWidth: '340px', width: 'min(340px, calc(100vw - 2rem))', padding: '12px', boxSizing: 'border-box' }}
       >
-        <DialogHeader>
+        {/* min-w-0 on grid children so they can shrink below intrinsic content width */}
+        <DialogHeader style={{ minWidth: 0 }}>
           <DialogTitle className="flex items-center gap-2">
             <Share2 size={18} />
             Share {typeLabel}
@@ -232,7 +233,7 @@ export default function ShareToChatDialog({ isOpen, onClose, shareData }: ShareT
             <p className="text-sm text-muted-foreground">No item selected to share</p>
           </div>
         ) : error ? (
-          <div className="space-y-4">
+          <div className="space-y-4" style={{ minWidth: 0 }}>
             <div className="bg-destructive/10 rounded-lg p-4 text-center">
               <p className="text-sm text-destructive font-medium">Something went wrong</p>
               <p className="text-xs text-muted-foreground mt-1">{error}</p>
@@ -246,39 +247,39 @@ export default function ShareToChatDialog({ isOpen, onClose, shareData }: ShareT
             </Button>
           </div>
         ) : (
-        <div className="space-y-4">
-          {/* Preview — compact, never overflows */}
+        <div className="space-y-3" style={{ minWidth: 0, maxWidth: '100%', overflow: 'hidden' }}>
+          {/* Preview */}
           <div className="bg-accent/50 rounded-lg p-3 overflow-hidden">
             {safeShareData.userName && (
               <p className="text-xs text-muted-foreground mb-1">
                 by {safeShareData.userName}
               </p>
             )}
-            <p className="text-sm text-foreground line-clamp-2 break-words whitespace-normal w-full max-w-full">
+            <p className="text-sm text-foreground line-clamp-2 break-words whitespace-normal">
               {safeShareData.preview}
             </p>
           </div>
 
-          {/* FIX 2: URL display box — overflow-hidden text-ellipsis whitespace-nowrap box-border min-w-0 */}
-          <div className="relative w-full box-border">
-            <div className="w-full bg-accent/30 rounded-md pr-10 pl-3 py-2 text-xs text-muted-foreground border border-border/50 overflow-hidden box-border">
-              <p className="truncate whitespace-nowrap text-ellipsis overflow-hidden">{shareUrl || 'Generating link...'}</p>
+          {/* URL display + copy button in a single flex row — no absolute positioning */}
+          <div className="flex items-center gap-1 w-full" style={{ minWidth: 0 }}>
+            <div className="flex-1 bg-accent/30 rounded-md px-2 py-2 text-xs text-muted-foreground border border-border/50 overflow-hidden" style={{ minWidth: 0 }}>
+              <p className="truncate">{shareUrl || 'Generating link...'}</p>
             </div>
             <button
               onClick={copyLink}
               disabled={!shareUrl}
               title="Copy link"
-              className="absolute right-1.5 top-1/2 -translate-y-1/2 flex items-center justify-center w-7 h-7 rounded-md hover:bg-accent/60 transition-colors text-muted-foreground hover:text-foreground disabled:opacity-40"
+              className="shrink-0 flex items-center justify-center w-8 h-8 rounded-md border border-border/50 bg-accent/30 hover:bg-accent/60 transition-colors text-muted-foreground hover:text-foreground disabled:opacity-40"
             >
               {copied ? <Check size={14} className="text-green-400" /> : <Copy size={14} />}
             </button>
           </div>
 
-          {/* Share platform buttons — vertical stack, zero overflow risk */}
-          <div className="flex flex-col gap-1 w-full">
+          {/* Share platform buttons — all full-width vertical stack, no side-by-side */}
+          <div className="flex flex-col gap-1.5 w-full" style={{ minWidth: 0 }}>
             <button
               type="button"
-              className="w-full flex items-center justify-center h-8 rounded-md border border-border bg-background text-xs text-foreground hover:bg-accent transition-colors overflow-hidden"
+              className="w-full flex items-center justify-center h-8 rounded-md border border-border bg-background text-xs text-foreground hover:bg-accent transition-colors"
               onClick={() => {
                 window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent((safeShareData.preview?.slice(0, 100) || 'Check this out') + ' ' + shareUrl)}`, '_blank');
               }}
@@ -286,28 +287,26 @@ export default function ShareToChatDialog({ isOpen, onClose, shareData }: ShareT
             >
               WhatsApp
             </button>
-            <div className="flex gap-1 w-full">
-              <button
-                type="button"
-                className="flex-1 flex items-center justify-center h-8 rounded-md border border-border bg-background text-xs text-foreground hover:bg-accent transition-colors overflow-hidden"
-                onClick={() => {
-                  window.open(`https://twitter.com/intent/tweet?url=${encodeURIComponent(shareUrl)}&text=${encodeURIComponent(safeShareData.preview?.slice(0, 100) || 'Check this out')}`, '_blank');
-                }}
-                disabled={!shareUrl}
-              >
-                X
-              </button>
-              <button
-                type="button"
-                className="flex-1 flex items-center justify-center h-8 rounded-md border border-border bg-background text-xs text-foreground hover:bg-accent transition-colors overflow-hidden"
-                onClick={() => {
-                  window.open(`https://www.reddit.com/submit?url=${encodeURIComponent(shareUrl)}&title=${encodeURIComponent(safeShareData.preview?.slice(0, 100) || 'Check this out')}`, '_blank');
-                }}
-                disabled={!shareUrl}
-              >
-                Reddit
-              </button>
-            </div>
+            <button
+              type="button"
+              className="w-full flex items-center justify-center h-8 rounded-md border border-border bg-background text-xs text-foreground hover:bg-accent transition-colors"
+              onClick={() => {
+                window.open(`https://twitter.com/intent/tweet?url=${encodeURIComponent(shareUrl)}&text=${encodeURIComponent(safeShareData.preview?.slice(0, 100) || 'Check this out')}`, '_blank');
+              }}
+              disabled={!shareUrl}
+            >
+              X / Twitter
+            </button>
+            <button
+              type="button"
+              className="w-full flex items-center justify-center h-8 rounded-md border border-border bg-background text-xs text-foreground hover:bg-accent transition-colors"
+              onClick={() => {
+                window.open(`https://www.reddit.com/submit?url=${encodeURIComponent(shareUrl)}&title=${encodeURIComponent(safeShareData.preview?.slice(0, 100) || 'Check this out')}`, '_blank');
+              }}
+              disabled={!shareUrl}
+            >
+              Reddit
+            </button>
           </div>
 
           {activeSection === 'actions' && (
