@@ -359,14 +359,14 @@ export default function BlogDetailClient() {
 
       {/* Share Dialog */}
       <Dialog open={shareDialogOpen} onOpenChange={setShareDialogOpen}>
-        <DialogContent className="sm:max-w-lg p-3 sm:p-6">
+        <DialogContent className="sm:max-w-lg p-3 sm:p-6 overflow-hidden max-w-full">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2"><Share2 size={18} /> Share This Blog</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <div className="bg-accent/50 rounded-lg p-3 overflow-hidden">
               <p className="text-xs text-muted-foreground mb-1">by {blog.user.name}</p>
-              <p className="text-sm text-foreground line-clamp-2 break-words">{blog.title}</p>
+              <p className="text-sm text-foreground line-clamp-2 break-words whitespace-normal w-full max-w-full">{blog.title}</p>
             </div>
             {/* Share URL — copy button embedded inside to prevent mobile overflow */}
             <div className="relative w-full">

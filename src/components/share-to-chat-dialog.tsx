@@ -217,7 +217,7 @@ export default function ShareToChatDialog({ isOpen, onClose, shareData }: ShareT
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => { if (!open) { handleClose(); } }}>
-      <DialogContent className="sm:max-w-lg p-3 sm:p-6">
+      <DialogContent className="sm:max-w-lg p-3 sm:p-6 overflow-hidden max-w-full">
         {/* Scrollable inner container to prevent content clipping */}
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
@@ -253,7 +253,7 @@ export default function ShareToChatDialog({ isOpen, onClose, shareData }: ShareT
                 by {safeShareData.userName}
               </p>
             )}
-            <p className="text-sm text-foreground line-clamp-2 break-words">
+            <p className="text-sm text-foreground line-clamp-2 break-words whitespace-normal w-full max-w-full">
               {safeShareData.preview}
             </p>
           </div>
