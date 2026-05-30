@@ -27,7 +27,11 @@ export default function robots(): MetadataRoute.Robots {
         allow: "/",
       },
       {
-        userAgent: "ClaudeBot",
+        userAgent: "ChatGPT-User",
+        allow: "/",
+      },
+      {
+        userAgent: "PerplexityBot",
         allow: "/",
       },
       {
@@ -35,7 +39,7 @@ export default function robots(): MetadataRoute.Robots {
         allow: "/",
       },
       {
-        userAgent: "PerplexityBot",
+        userAgent: "ClaudeBot",
         allow: "/",
       },
       {
@@ -92,6 +96,8 @@ export default function robots(): MetadataRoute.Robots {
         userAgent: "*",
         allow: "/",
         disallow: [
+          "/api/",
+          "/private/",
           "/login",
           "/signup",
           "/admin",

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Script from "next/script";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "@/components/ui/sonner";
@@ -26,12 +27,17 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL(CANONICAL_URL),
   title: {
-    default: `${SITE_NAME} — Gamified Self-Growth Platform`,
+    default: `${SITE_NAME} — Start, Restart, Explore | Self-Growth Platform`,
     template: `%s | ${SITE_NAME}`,
   },
-  description: SITE_DESCRIPTION,
-  keywords: SITE_KEYWORDS,
+  description:
+    "SRE Track is a free self-growth platform to track learning, fitness, content creation, and time management — with AI assistants, gamification, and a social feed.",
+  keywords: [
+    'self growth', 'habit tracker', 'learning tracker', 'fitness tracker',
+    'productivity', 'AI assistant', 'personal development', 'goal tracking',
+  ],
   authors: [{ name: SITE_CREATOR, url: SITE_URL }],
   creator: SITE_CREATOR,
   publisher: SITE_NAME,
@@ -42,43 +48,38 @@ export const metadata: Metadata = {
     ],
     apple: "/apple-touch-icon.png",
   },
-  metadataBase: new URL(CANONICAL_URL),
   alternates: {
     canonical: CANONICAL_URL,
   },
   openGraph: {
-    title: `${SITE_NAME} — Gamified Self-Growth Platform`,
-    description: `${SITE_SHORT_NAME} (${SITE_TAGLINE}) — Your gamified journey to self-improvement. Track fitness, learning, and content creation with XP, achievements, and a progression-focused community.`,
-    type: "website",
-    url: CANONICAL_URL,
+    type: 'website',
     siteName: SITE_NAME,
-    locale: "en_US",
+    title: `${SITE_NAME} — Start, Restart, Explore | Self-Growth Platform`,
+    description:
+      'Track learning, fitness, content, and time — with AI assistants, gamification, and a social community. 100% free forever.',
+    url: CANONICAL_URL,
+    locale: 'en_US',
     images: [
       {
-        url: "/og-image.png",
+        url: '/og-image.png',
         width: 1200,
         height: 630,
-        alt: `${SITE_SHORT_NAME} — Self-Growth Progression Platform`,
+        alt: `${SITE_SHORT_NAME} — Self-Growth Platform`,
       },
     ],
   },
   twitter: {
-    card: "summary_large_image",
-    title: `${SITE_NAME} — Gamified Self-Growth Platform`,
-    description: `Track your fitness, learning, and content creation habits with XP, achievements, and a supportive community on ${SITE_NAME}.`,
-    images: ["/og-image.png"],
-    creator: "@sreplatform",
+    card: 'summary_large_image',
+    site: '@sretrack',
+    title: `${SITE_NAME} — Start, Restart, Explore`,
+    description:
+      'Free self-growth platform: learning, fitness, content & time tracking with AI assistants and gamification.',
+    images: ['/og-image.png'],
   },
   robots: {
     index: true,
     follow: true,
-    googleBot: {
-      index: true,
-      follow: true,
-      "max-video-preview": -1,
-      "max-image-preview": "large",
-      "max-snippet": -1,
-    },
+    googleBot: { index: true, follow: true },
   },
   category: "self-improvement",
 };
@@ -98,12 +99,33 @@ export default function RootLayout({
     description: SITE_DESCRIPTION,
     potentialAction: {
       "@type": "SearchAction",
-      target: {
-        "@type": "EntryPoint",
-        urlTemplate: `${SITE_URL}/discover?q={search_term_string}`,
-      },
+      target: `${SITE_URL}/discover?q={search_term_string}`,
       "query-input": "required name=search_term_string",
     },
+  };
+
+  const webApplicationSchema = {
+    "@context": "https://schema.org",
+    "@type": "WebApplication",
+    name: SITE_NAME,
+    url: SITE_URL,
+    applicationCategory: "LifestyleApplication",
+    operatingSystem: "Web",
+    offers: {
+      "@type": "Offer",
+      price: "0",
+      priceCurrency: "USD",
+    },
+    featureList: [
+      "Learning tracker with AI tutor",
+      "Fitness tracker with macro estimation",
+      "Content creation pipeline tracker",
+      "Time management and focus timer",
+      "Social feed and community",
+      "100+ achievements and XP gamification",
+      "5 specialized AI assistants",
+      "Blog on self-growth topics",
+    ],
   };
 
   const organizationSchema = {
@@ -111,39 +133,14 @@ export default function RootLayout({
     "@type": "Organization",
     name: SITE_NAME,
     url: SITE_URL,
-    logo: `${SITE_URL}/logo.png`,
+    logo: `${SITE_URL}/favicon-96x96.png`,
+    description: "SRE stands for Start, Restart, Explore — a self-growth platform helping users build consistent habits across learning, fitness, content, and productivity.",
     sameAs: [],
     contactPoint: {
       "@type": "ContactPoint",
       contactType: "customer support",
       url: `${SITE_URL}/contact`,
     },
-  };
-
-  const softwareSchema = {
-    "@context": "https://schema.org",
-    "@type": "SoftwareApplication",
-    name: SITE_NAME,
-    applicationCategory: "LifestyleApplication",
-    operatingSystem: "Web",
-    url: SITE_URL,
-    description: SITE_DESCRIPTION,
-    offers: {
-      "@type": "Offer",
-      price: "0",
-      priceCurrency: "USD",
-    },
-    featureList: [
-      "Learning progression tracking",
-      "Fitness journey logging",
-      "Content creator growth tracking",
-      "Public progression feed",
-      "AI-assisted learning",
-      "Topic discovery",
-      "Accountability community",
-      "Gamification with XP, levels, streaks, and achievements",
-      "Consistency systems with daily quests and reminders",
-    ],
   };
 
   return (
@@ -161,21 +158,16 @@ export default function RootLayout({
         <meta name="apple-mobile-web-app-title" content={SITE_NAME} />
         <meta name="application-name" content={SITE_NAME} />
         <script
-          async
-          src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-7745236489664493"
-          crossOrigin="anonymous"
-        />
-        <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(websiteSchema) }}
         />
         <script
           type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationSchema) }}
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(webApplicationSchema) }}
         />
         <script
           type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(softwareSchema) }}
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationSchema) }}
         />
       </head>
       <body
@@ -184,6 +176,12 @@ export default function RootLayout({
         <AuthProvider>{children}</AuthProvider>
         <CookieConsent />
         <Toaster position="bottom-right" />
+        <Script
+          async
+          src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-7745236489664493"
+          crossOrigin="anonymous"
+          strategy="afterInteractive"
+        />
       </body>
     </html>
   );

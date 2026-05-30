@@ -273,12 +273,12 @@ export default function ShareToChatDialog({ isOpen, onClose, shareData }: ShareT
             </button>
           </div>
 
-          {/* External Share Buttons — compact grid for mobile */}
-          <div className="grid grid-cols-3 gap-1.5 sm:gap-2">
+          {/* External Share Buttons */}
+          <div className="grid grid-cols-3 gap-2">
             <Button
-              size="sm"
+              size="default"
               variant="outline"
-              className="text-[10px] sm:text-xs h-8 sm:h-9 px-1 sm:px-2 truncate"
+              className="text-xs sm:text-sm h-10 sm:h-11 px-3 sm:px-4"
               onClick={() => {
                 window.open(`https://www.reddit.com/submit?url=${encodeURIComponent(shareUrl)}&title=${encodeURIComponent(safeShareData.preview?.slice(0, 100) || 'Check this out')}`, '_blank');
               }}
@@ -287,9 +287,9 @@ export default function ShareToChatDialog({ isOpen, onClose, shareData }: ShareT
               Reddit
             </Button>
             <Button
-              size="sm"
+              size="default"
               variant="outline"
-              className="text-[10px] sm:text-xs h-8 sm:h-9 px-1 sm:px-2 truncate"
+              className="text-xs sm:text-sm h-10 sm:h-11 px-3 sm:px-4"
               onClick={() => {
                 window.open(`https://twitter.com/intent/tweet?url=${encodeURIComponent(shareUrl)}&text=${encodeURIComponent(safeShareData.preview?.slice(0, 100) || 'Check this out')}`, '_blank');
               }}
@@ -298,9 +298,9 @@ export default function ShareToChatDialog({ isOpen, onClose, shareData }: ShareT
               X
             </Button>
             <Button
-              size="sm"
+              size="default"
               variant="outline"
-              className="text-[10px] sm:text-xs h-8 sm:h-9 px-1 sm:px-2 truncate"
+              className="text-xs sm:text-sm h-10 sm:h-11 px-3 sm:px-4"
               onClick={() => {
                 window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent((safeShareData.preview?.slice(0, 100) || 'Check this out') + ' ' + shareUrl)}`, '_blank');
               }}
