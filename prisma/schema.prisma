@@ -1,0 +1,875 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Core User Models ───
+
+model User {
+  id           String    @id @default(cuid())
+  email        String    @unique
+  phone        String?
+  username     String    @unique
+  passwordHash String
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  profile      Profile?
+  adminRole    AdminRole?
+
+  posts              Post[]
+  comments           Comment[]
+  likes              PostLike[]
+  bookmarks          PostBookmark[]
+  topicBookmarks     TopicBookmark[]
+  reposts            Repost[]
+  commentLikes       CommentLike[]
+  learningTopics     LearningTopic[]
+  learningEntries    LearningEntry[]
+  learningFlags      LearningProgressFlag[]
+  fitnessProfile     FitnessProfile?
+  foodLogs           FitnessFoodLog[]
+  workoutLogs        FitnessWorkoutLog[]
+  weightLogs         FitnessWeightLog[]
+  contentSeries      ContentSeries[]
+  contentEntries     ContentEntry[]
+  tasks              TimeTask[]
+  focusSessions      FocusSession[]
+  dayPlans           DayPlan[]
+  sentMessages       Message[]           @relation("SentMessages")
+  receivedMessages   Message[]           @relation("ReceivedMessages")
+  groupMemberships   GroupChatMember[]
+  groupMessages      GroupChatMessage[]
+  notifications      Notification[]      @relation("NotificationUser")
+  notificationsFrom  Notification[]      @relation("NotificationFromUser")
+  achievements       UserAchievement[]
+  xpGains            XPGain[]
+  dailyQuests        UserQuest[]
+  feedbacks          Feedback[]
+  reportsMade        Report[]            @relation("Reporter")
+  postReportsMade    PostReport[]        @relation("PostReporter")
+  commentReportsMade CommentReport[]     @relation("CommentReporter")
+  chatHistories      ChatHistory[]
+  conversations      Conversation[]
+
+  following   Follow[]  @relation("Following")
+  followers   Follow[]  @relation("Followers")
+  blocked     Block[]   @relation("Blocker")
+  blockedBy   Block[]   @relation("Blocked")
+
+  verifications   Verification[]
+  adminNotesMade  AdminNote[]  @relation("AdminNoteAuthor")
+  adminNotesOn    AdminNote[]  @relation("AdminNoteTarget")
+  dmConversations1 DMConversation[] @relation("DMParticipant1")
+  dmConversations2 DMConversation[] @relation("DMParticipant2")
+  dmMessagesSent   DMMessage[]      @relation("DMSender")
+  liveUpdateLikes    LiveUpdateLike[]
+  liveUpdateReposts  LiveUpdateRepost[]
+  liveUpdateBookmarks LiveUpdateBookmark[]
+
+  blogs              Blog[]
+  blogLikes          BlogLike[]
+  blogComments       BlogComment[]
+  blogBookmarks      BlogBookmark[]
+
+  postsLikedIds     String? // JSON array of post IDs
+  postsBookmarkedIds String? // JSON array of post IDs
+}
+
+model Profile {
+  id                 String   @id @default(cuid())
+  userId             String   @unique
+  name               String?
+  avatarUrl          String?
+  bio                String?
+  email              String?
+  activePhases       String   @default("[]") // JSON: ["start","restart","explore"]
+  phaseActivityMap   String   @default("{}") // JSON: {"phase":{"activities":[...],"metadata":{}}}
+  category           String?
+  categoryAnswers    String?  // JSON
+  onboardingComplete Boolean  @default(false)
+  xp                 Int      @default(0)
+  level              Int      @default(1)
+  currentStreak      Int      @default(0)
+  longestStreak      Int      @default(0)
+  lastActiveDate     String?  // YYYY-MM-DD
+  region             String?
+  accessStatus       String   @default("active") // active, suspended, banned
+  language           String   @default("en")
+  verified           Boolean  @default(false)
+  tempVerified       Boolean  @default(false)
+  shareAchievements  Boolean  @default(false)
+  shareFitnessProgress Boolean @default(false)
+  shareContentStatus   Boolean @default(false)
+  shareLearningProgress Boolean @default(false)
+  isPublic           Boolean  @default(true)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model AdminRole {
+  id            String   @id @default(cuid())
+  userId        String   @unique
+  email         String
+  appointedById String?
+  isSuperAdmin  Boolean  @default(false)
+  createdAt     DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Achievement {
+  id         String   @id @default(cuid())
+  key        String   @unique
+  name       String
+  description String
+  iconEmoji  String
+  xpReward   Int
+  tier       String   @default("bronze") // bronze, silver, gold, platinum
+  category   String?
+  criteria   String?  // JSON string: {"type":"learning_entries","value":10}
+  createdAt  DateTime @default(now())
+
+  userAchievements UserAchievement[]
+}
+
+model UserAchievement {
+  id            String   @id @default(cuid())
+  userId        String
+  achievementId String
+  unlockedAt    DateTime @default(now())
+
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  achievement Achievement @relation(fields: [achievementId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, achievementId])
+}
+
+model XPGain {
+  id        String   @id @default(cuid())
+  userId    String
+  amount    Int
+  reason    String
+  category  String?  // learning, fitness, content, time, social, quest
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model UserQuest {
+  id          String   @id @default(cuid())
+  userId      String
+  title       String
+  description String?
+  category    String   // learning, fitness, content, time, social
+  xpReward    Int      @default(10)
+  completed   Boolean  @default(false)
+  date        String   // YYYY-MM-DD
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// ─── Learning Models ───
+
+model LearningTopic {
+  id                   String   @id @default(cuid())
+  userId               String
+  name                 String
+  phase                String?  // start, restart, explore
+  isSharedCollection   Boolean  @default(false)
+  sharedAt             DateTime?
+  collectionVisibility String   @default("public") // public, followers, private
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  user    User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  entries LearningEntry[]
+  flags   LearningProgressFlag[]
+  topicBookmarks TopicBookmark[]
+}
+
+model LearningEntry {
+  id        String   @id @default(cuid())
+  userId    String
+  topicId   String
+  title     String
+  content   String?
+  duration  Int?     // minutes
+  date      String   // YYYY-MM-DD
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user  User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  topic LearningTopic  @relation(fields: [topicId], references: [id], onDelete: Cascade)
+}
+
+model LearningProgressFlag {
+  id       String   @id @default(cuid())
+  userId   String
+  topicId  String
+  flagDate String   // YYYY-MM-DD
+  note     String?
+  createdAt DateTime @default(now())
+
+  user  User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  topic LearningTopic @relation(fields: [topicId], references: [id], onDelete: Cascade)
+}
+
+// ─── Fitness Models ───
+
+model FitnessProfile {
+  id            String   @id @default(cuid())
+  userId        String   @unique
+  weight        Float?
+  height        Float?
+  age           Int?
+  gender        String?
+  activityLevel String?  // sedentary, light, moderate, active, very_active
+  goal          String?  // lose, maintain, gain
+  tdee          Float?
+  workoutLevel  String?  // beginner, intermediate, advanced
+  dietType      String?  // omnivore, vegetarian, vegan, keto, paleo
+  fitnessPhase  String?  // start, restart, explore
+  unitSystem    String?  @default("metric") // metric or imperial
+  proteinTarget Float?
+  calorieTarget Float?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model FitnessFoodLog {
+  id          String   @id @default(cuid())
+  userId      String
+  mealName    String
+  quantity    Float
+  quantityUnit String  @default("serving")
+  calories    Float
+  proteinG    Float    @default(0)
+  carbsG      Float    @default(0)
+  fatG        Float    @default(0)
+  fiberG      Float    @default(0)
+  sugarG      Float    @default(0)
+  mealCategory String   @default("snack")
+  date        String   // YYYY-MM-DD
+  createdAt   DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model FitnessWorkoutLog {
+  id                String   @id @default(cuid())
+  userId            String
+  workoutType       String
+  duration          Int      // minutes
+  estimatedCalories Float?
+  notes             String?
+  date              String   // YYYY-MM-DD
+  // Weight training fields (only populated when workoutType = "Weight Training")
+  muscleGroup       String?  // chest, back, shoulders, arms, legs, core, full_body
+  sets              Int?
+  reps              Int?
+  loadKg            Float?
+  // Workout split (always saved, reflects user's split at time of logging)
+  workoutSplit      String?  // push_pull_legs, upper_lower, full_body, bro_split, custom
+  createdAt         DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model FitnessWeightLog {
+  id        String   @id @default(cuid())
+  userId    String
+  weight    Float
+  date      String   // YYYY-MM-DD
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// ─── Content Creation Models ───
+
+model ContentSeries {
+  id          String   @id @default(cuid())
+  userId      String
+  name        String
+  description String?
+  category    String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user    User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  entries ContentEntry[]
+}
+
+model ContentEntry {
+  id            String   @id @default(cuid())
+  userId        String
+  seriesId      String
+  title         String
+  content       String?
+  status        String   @default("idea") // idea, drafting, editing, published, archived
+  contentType   String   @default("post") // blog, video, post
+  liveStatus    String   @default("not_started") // not_started, written, shoot, edit, posted
+  platform      String?  // comma-separated: youtube,blog,twitter,instagram,etc.
+  editTime      Int?     // minutes
+  shootDate     String?  // YYYY-MM-DD
+  postDate      String?  // YYYY-MM-DD
+  publishedAt   DateTime?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  user   User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  series ContentSeries  @relation(fields: [seriesId], references: [id], onDelete: Cascade)
+}
+
+// ─── Time Management Models ───
+
+model TimeTask {
+  id          String   @id @default(cuid())
+  userId      String
+  title       String
+  description String?
+  category    String?  // work, personal, health, learning, other
+  priority    String   @default("medium") // low, medium, high
+  status      String   @default("pending") // pending, in_progress, completed
+  isProductive Boolean @default(true)
+  fromTime    String?  // HH:mm
+  toTime      String?  // HH:mm
+  order       Int      @default(0)
+  date        String   // YYYY-MM-DD
+  completedAt DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model FocusSession {
+  id          String   @id @default(cuid())
+  userId      String
+  taskName    String
+  duration    Int      // minutes
+  completed   Boolean  @default(false)
+  date        String   // YYYY-MM-DD
+  startedAt   DateTime?
+  endedAt     DateTime?
+  createdAt   DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model DayPlan {
+  id          String   @id @default(cuid())
+  userId      String
+  date        String   // YYYY-MM-DD
+  activities  String   @default("[]") // JSON array of {title,category,isProductive,time,replacement?}
+  rating      Int?     // 1-5
+  review      String?
+  highlights  String?  // JSON array
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// ─── Social Models ───
+
+model Post {
+  id          String   @id @default(cuid())
+  userId      String
+  content     String
+  images      String?  // JSON array of URLs
+  taggedUsers String?  // JSON array of user IDs
+  hashtags    String?  // JSON array
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user     User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  likes    PostLike[]
+  bookmarks PostBookmark[]
+  reposts  Repost[]
+  comments Comment[]
+  reports  PostReport[]
+
+  @@index([userId])
+  @@index([createdAt])
+}
+
+model PostLike {
+  id     String   @id @default(cuid())
+  postId String
+  userId String
+  createdAt DateTime @default(now())
+
+  post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([postId, userId])
+}
+
+model PostBookmark {
+  id     String   @id @default(cuid())
+  postId String
+  userId String
+  createdAt DateTime @default(now())
+
+  post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([postId, userId])
+}
+
+model TopicBookmark {
+  id        String   @id @default(cuid())
+  topicId   String
+  userId    String
+  createdAt DateTime @default(now())
+
+  topic LearningTopic @relation(fields: [topicId], references: [id], onDelete: Cascade)
+  user  User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([topicId, userId])
+}
+
+model Repost {
+  id        String   @id @default(cuid())
+  postId    String
+  userId    String
+  comment   String?
+  createdAt DateTime @default(now())
+
+  post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([postId, userId])
+}
+
+model Comment {
+  id          String   @id @default(cuid())
+  postId      String
+  userId      String
+  content     String
+  taggedUsers String?  // JSON array
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  post   Post          @relation(fields: [postId], references: [id], onDelete: Cascade)
+  user   User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  likes  CommentLike[]
+  reports CommentReport[]
+
+  @@index([postId])
+}
+
+model CommentLike {
+  id        String   @id @default(cuid())
+  commentId String
+  userId    String
+  createdAt DateTime @default(now())
+
+  comment Comment @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([commentId, userId])
+}
+
+model Follow {
+  id          String   @id @default(cuid())
+  followerId  String
+  followingId String
+  status      String   @default("pending") // pending, accepted, rejected
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  follower  User @relation("Following", fields: [followerId], references: [id], onDelete: Cascade)
+  following User @relation("Followers", fields: [followingId], references: [id], onDelete: Cascade)
+
+  @@unique([followerId, followingId])
+}
+
+model Block {
+  id         String   @id @default(cuid())
+  blockerId  String
+  blockedId  String
+  createdAt  DateTime @default(now())
+
+  blocker User @relation("Blocker", fields: [blockerId], references: [id], onDelete: Cascade)
+  blocked User @relation("Blocked", fields: [blockedId], references: [id], onDelete: Cascade)
+
+  @@unique([blockerId, blockedId])
+}
+
+model Message {
+  id          String   @id @default(cuid())
+  senderId    String
+  receiverId  String
+  content     String
+  read        Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  sender   User @relation("SentMessages", fields: [senderId], references: [id], onDelete: Cascade)
+  receiver User @relation("ReceivedMessages", fields: [receiverId], references: [id], onDelete: Cascade)
+
+  @@index([senderId, receiverId])
+}
+
+model GroupChat {
+  id            String   @id @default(cuid())
+  name          String
+  description   String?
+  avatarUrl     String?
+  isPublic      Boolean  @default(true)
+  messageAccess String   @default("all") // all, admins_only
+  createdBy     String
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  members  GroupChatMember[]
+  messages GroupChatMessage[]
+}
+
+model GroupChatMember {
+  id       String   @id @default(cuid())
+  groupId  String
+  userId   String
+  role     String   @default("member") // creator, admin, member
+  joinedAt DateTime @default(now())
+
+  group GroupChat @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  user  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([groupId, userId])
+}
+
+model GroupChatMessage {
+  id        String   @id @default(cuid())
+  groupId   String
+  senderId  String
+  content   String
+  createdAt DateTime @default(now())
+
+  group  GroupChat @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  sender User      @relation(fields: [senderId], references: [id], onDelete: Cascade)
+}
+
+model Notification {
+  id          String   @id @default(cuid())
+  userId      String
+  type        String   // like, comment, follow, repost, mention, achievement, level_up, quest, dm, group_message, followed_post, tag, system
+  title       String?
+  fromUserId  String?
+  postId      String?
+  commentId   String?
+  message     String
+  data        String?  // JSON
+  read        Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  user     User  @relation("NotificationUser", fields: [userId], references: [id], onDelete: Cascade)
+  fromUser User? @relation("NotificationFromUser", fields: [fromUserId], references: [id], onDelete: SetNull)
+
+  @@index([userId, read])
+}
+
+// ─── Report & Moderation Models ───
+
+model Report {
+  id             String   @id @default(cuid())
+  reporterId     String
+  reportedUserId String
+  category       String   // spam, harassment, inappropriate, other
+  reason         String
+  status         String   @default("pending") // pending, reviewed, dismissed, actioned
+  reviewedBy     String?
+  adminNote      String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  reporter User @relation("Reporter", fields: [reporterId], references: [id], onDelete: Cascade)
+}
+
+model PostReport {
+  id             String   @id @default(cuid())
+  reporterId     String
+  postId         String
+  reportedUserId String
+  category       String
+  reason         String
+  status         String   @default("pending")
+  reviewedBy     String?
+  adminNote      String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  reporter User @relation("PostReporter", fields: [reporterId], references: [id], onDelete: Cascade)
+  post     Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+}
+
+model CommentReport {
+  id             String   @id @default(cuid())
+  reporterId     String
+  commentId      String
+  reportedUserId String
+  category       String
+  reason         String
+  status         String   @default("pending")
+  reviewedBy     String?
+  adminNote      String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  reporter User    @relation("CommentReporter", fields: [reporterId], references: [id], onDelete: Cascade)
+  comment  Comment @relation(fields: [commentId], references: [id], onDelete: Cascade)
+}
+
+// ─── Feedback Model ───
+
+model Feedback {
+  id               String   @id @default(cuid())
+  userId           String
+  rating           Int      // 1-5
+  category         String?
+  message          String
+  overallRating    Int?
+  modulesUsed      String?  // JSON array
+  improvementArea  String?
+  recommendation   Int?
+  desiredFeatures  String?  // JSON
+  bugs             String?
+  freeText         String?
+  adminNote        String?
+  createdAt        DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// ─── AI Chat History (legacy, kept for backward compat) ───
+
+model ChatHistory {
+  id        String   @id @default(cuid())
+  userId    String
+  botType   String   // learning, fitness, content, time, general
+  messages  String   // JSON array of {role, content, timestamp}
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// ─── AI Conversations (new ChatGPT-style system) ───
+
+model Conversation {
+  id          String   @id @default(cuid())
+  userId      String
+  title       String   @default("New Conversation")
+  aiAgentType String   @default("general") // general, learning, fitness, content, time, navigation
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user     User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages ChatMessage[]
+
+  @@index([userId, aiAgentType])
+  @@index([userId, updatedAt])
+}
+
+model ChatMessage {
+  id             String   @id @default(cuid())
+  conversationId String
+  role           String   // user, assistant
+  content        String
+  createdAt      DateTime @default(now())
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId, createdAt])
+}
+
+// ─── Audit Log ───
+
+model AuditLog {
+  id           String   @id @default(cuid())
+  adminId      String
+  action       String
+  targetUserId String?
+  targetType   String?
+  targetId     String?
+  details      String?  // JSON
+  createdAt    DateTime @default(now())
+}
+
+// ─── Verification Model ───
+
+model Verification {
+  id          String    @id @default(cuid())
+  userId      String
+  type        String    // identity, email, employer, skill, expert, community_leader
+  status      String    @default("pending") // pending, approved, rejected
+  verifiedBy  String?
+  verifiedAt  DateTime?
+  documentUrl String?
+  notes       String?
+  createdAt   DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// ─── Admin Note Model ───
+
+model AdminNote {
+  id          String   @id @default(cuid())
+  adminId     String
+  targetUserId String
+  content     String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  admin      User @relation("AdminNoteAuthor", fields: [adminId], references: [id], onDelete: Cascade)
+  targetUser User @relation("AdminNoteTarget", fields: [targetUserId], references: [id], onDelete: Cascade)
+}
+
+// ─── DM Conversation Models ───
+
+model DMConversation {
+  id             String   @id @default(cuid())
+  participant1Id String   // always the lower userId
+  participant2Id String   // always the higher userId
+  lastMessageAt  DateTime @default(now())
+  createdAt      DateTime @default(now())
+
+  participant1 User @relation("DMParticipant1", fields: [participant1Id], references: [id], onDelete: Cascade)
+  participant2 User @relation("DMParticipant2", fields: [participant2Id], references: [id], onDelete: Cascade)
+  messages     DMMessage[]
+
+  @@unique([participant1Id, participant2Id])
+}
+
+model DMMessage {
+  id             String   @id @default(cuid())
+  conversationId String
+  senderId       String
+  content        String
+  isRead         Boolean  @default(false)
+  createdAt      DateTime @default(now())
+
+  conversation DMConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  sender       User           @relation("DMSender", fields: [senderId], references: [id], onDelete: Cascade)
+}
+
+// ─── Live Update Interaction Models ───
+// Supports like/repost on ContentEntry, FitnessWorkoutLog, FitnessWeightLog, LearningTopic
+
+model LiveUpdateLike {
+  id         String   @id @default(cuid())
+  userId     String
+  entityType String   // content_entry, fitness_workout, fitness_weight, learning_topic
+  entityId   String
+  createdAt  DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([entityType, entityId, userId])
+  @@index([entityType, entityId])
+}
+
+model LiveUpdateRepost {
+  id         String   @id @default(cuid())
+  userId     String
+  entityType String   // content_entry, fitness_workout, fitness_weight, learning_topic
+  entityId   String
+  comment    String?
+  createdAt  DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([entityType, entityId, userId])
+  @@index([entityType, entityId])
+}
+
+model LiveUpdateBookmark {
+  id         String   @id @default(cuid())
+  userId     String
+  entityType String   // content_entry, fitness_workout, fitness_weight, learning_topic
+  entityId   String
+  createdAt  DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([entityType, entityId, userId])
+  @@index([entityType, entityId])
+}
+
+// ─── Blog Models ───
+
+model Blog {
+  id          String   @id @default(cuid())
+  userId      String
+  title       String
+  slug        String   @unique
+  excerpt     String?  // Short preview text
+  content     String   // Full blog content (markdown-like text)
+  coverImage  String?  // URL to cover image
+  tags        String?  // JSON array of tag strings
+  readTime    Int      @default(5) // Estimated read time in minutes
+  status      String   @default("published") // published, draft, archived
+  featured    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user      User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  likes     BlogLike[]
+  comments  BlogComment[]
+  bookmarks BlogBookmark[]
+
+  @@index([userId])
+  @@index([createdAt])
+  @@index([slug])
+}
+
+model BlogLike {
+  id        String   @id @default(cuid())
+  blogId    String
+  userId    String
+  createdAt DateTime @default(now())
+
+  blog Blog @relation(fields: [blogId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([blogId, userId])
+}
+
+model BlogComment {
+  id        String   @id @default(cuid())
+  blogId    String
+  userId    String
+  content   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  blog  Blog  @relation(fields: [blogId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([blogId])
+}
+
+model BlogBookmark {
+  id        String   @id @default(cuid())
+  blogId    String
+  userId    String
+  createdAt DateTime @default(now())
+
+  blog Blog @relation(fields: [blogId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([blogId, userId])
+}
