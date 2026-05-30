@@ -218,10 +218,9 @@ export default function ShareToChatDialog({ isOpen, onClose, shareData }: ShareT
   return (
     <Dialog open={isOpen} onOpenChange={(open) => { if (!open) { handleClose(); } }}>
       <DialogContent
-        style={{ maxWidth: '340px', width: 'min(340px, calc(100vw - 2rem))', padding: '12px', boxSizing: 'border-box' }}
+        className="!max-w-[340px] !w-[min(340px,calc(100vw-2rem))] !p-3 !gap-3 flex flex-col"
       >
-        {/* min-w-0 on grid children so they can shrink below intrinsic content width */}
-        <DialogHeader style={{ minWidth: 0 }}>
+        <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Share2 size={18} />
             Share {typeLabel}
@@ -233,7 +232,7 @@ export default function ShareToChatDialog({ isOpen, onClose, shareData }: ShareT
             <p className="text-sm text-muted-foreground">No item selected to share</p>
           </div>
         ) : error ? (
-          <div className="space-y-4" style={{ minWidth: 0 }}>
+          <div className="space-y-4">
             <div className="bg-destructive/10 rounded-lg p-4 text-center">
               <p className="text-sm text-destructive font-medium">Something went wrong</p>
               <p className="text-xs text-muted-foreground mt-1">{error}</p>
@@ -247,7 +246,7 @@ export default function ShareToChatDialog({ isOpen, onClose, shareData }: ShareT
             </Button>
           </div>
         ) : (
-        <div className="space-y-3" style={{ minWidth: 0, maxWidth: '100%', overflow: 'hidden' }}>
+        <div className="space-y-3 min-w-0">
           {/* Preview */}
           <div className="bg-accent/50 rounded-lg p-3 overflow-hidden">
             {safeShareData.userName && (
@@ -260,9 +259,9 @@ export default function ShareToChatDialog({ isOpen, onClose, shareData }: ShareT
             </p>
           </div>
 
-          {/* URL display + copy button in a single flex row — no absolute positioning */}
-          <div className="flex items-center gap-1 w-full" style={{ minWidth: 0 }}>
-            <div className="flex-1 bg-accent/30 rounded-md px-2 py-2 text-xs text-muted-foreground border border-border/50 overflow-hidden" style={{ minWidth: 0 }}>
+          {/* URL display + copy button */}
+          <div className="flex items-center gap-1.5 w-full min-w-0">
+            <div className="flex-1 min-w-0 bg-accent/30 rounded-md px-2 py-2 text-xs text-muted-foreground border border-border/50 overflow-hidden">
               <p className="truncate">{shareUrl || 'Generating link...'}</p>
             </div>
             <button
@@ -275,8 +274,8 @@ export default function ShareToChatDialog({ isOpen, onClose, shareData }: ShareT
             </button>
           </div>
 
-          {/* Share platform buttons — all full-width vertical stack, no side-by-side */}
-          <div className="flex flex-col gap-1.5 w-full" style={{ minWidth: 0 }}>
+          {/* Share platform buttons — full-width vertical stack */}
+          <div className="flex flex-col gap-1.5 w-full min-w-0">
             <button
               type="button"
               className="w-full flex items-center justify-center h-8 rounded-md border border-border bg-background text-xs text-foreground hover:bg-accent transition-colors"

@@ -360,19 +360,19 @@ export default function BlogDetailClient() {
       {/* Share Dialog */}
       <Dialog open={shareDialogOpen} onOpenChange={setShareDialogOpen}>
         <DialogContent
-          style={{ maxWidth: '340px', width: 'min(340px, calc(100vw - 2rem))', padding: '12px', boxSizing: 'border-box' }}
+          className="!max-w-[340px] !w-[min(340px,calc(100vw-2rem))] !p-3 !gap-3 flex flex-col"
         >
-          <DialogHeader style={{ minWidth: 0 }}>
+          <DialogHeader>
             <DialogTitle className="flex items-center gap-2"><Share2 size={18} /> Share This Blog</DialogTitle>
           </DialogHeader>
-          <div className="space-y-3" style={{ minWidth: 0, maxWidth: '100%', overflow: 'hidden' }}>
+          <div className="space-y-3 min-w-0">
             <div className="bg-accent/50 rounded-lg p-3 overflow-hidden">
               <p className="text-xs text-muted-foreground mb-1">by {blog.user.name}</p>
               <p className="text-sm text-foreground line-clamp-2 break-words whitespace-normal">{blog.title}</p>
             </div>
-            {/* URL display + copy button in a flex row — no absolute positioning */}
-            <div className="flex items-center gap-1 w-full" style={{ minWidth: 0 }}>
-              <div className="flex-1 bg-accent/30 rounded-md px-2 py-2 text-xs text-muted-foreground border border-border/50 overflow-hidden" style={{ minWidth: 0 }}>
+            {/* URL display + copy button */}
+            <div className="flex items-center gap-1.5 w-full min-w-0">
+              <div className="flex-1 min-w-0 bg-accent/30 rounded-md px-2 py-2 text-xs text-muted-foreground border border-border/50 overflow-hidden">
                 <p className="truncate">{shareUrl}</p>
               </div>
               <button
@@ -386,8 +386,8 @@ export default function BlogDetailClient() {
             <Button variant="outline" onClick={() => { window.open(shareUrl, '_blank'); setShareDialogOpen(false); }} className="w-full">
               <ExternalLink size={16} className="mr-2" /> Open in New Tab
             </Button>
-            {/* Social share buttons — all full-width vertical stack */}
-            <div className="flex flex-col gap-1.5 w-full" style={{ minWidth: 0 }}>
+            {/* Social share buttons — full-width vertical stack */}
+            <div className="flex flex-col gap-1.5 w-full min-w-0">
               <button type="button" className="w-full flex items-center justify-center h-8 rounded-md border border-border bg-background text-xs text-foreground hover:bg-accent transition-colors" onClick={() => window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(blog.title + ' ' + shareUrl)}`, '_blank')}>
                 WhatsApp
               </button>
