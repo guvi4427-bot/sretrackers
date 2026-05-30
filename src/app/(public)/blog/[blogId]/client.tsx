@@ -385,16 +385,19 @@ export default function BlogDetailClient() {
               <Button variant="outline" onClick={() => { window.open(shareUrl, '_blank'); setShareDialogOpen(false); }} className="w-full">
                 <ExternalLink size={16} className="mr-2" /> Open in New Tab
               </Button>
-              {/* Social share buttons — compact grid for mobile */}
-              <div className="grid grid-cols-3 gap-1.5 sm:gap-2">
-                <Button variant="outline" size="sm" className="text-[10px] sm:text-xs h-8 sm:h-9 px-1 sm:px-2 truncate" onClick={() => window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(blog.title)}&url=${encodeURIComponent(shareUrl)}`, '_blank')}>
+              {/* Social share buttons */}
+              <div className="grid grid-cols-4 gap-2">
+                <Button variant="outline" className="text-xs h-10 px-2 font-medium" onClick={() => window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(blog.title)}&url=${encodeURIComponent(shareUrl)}`, '_blank')}>
                   X
                 </Button>
-                <Button variant="outline" size="sm" className="text-[10px] sm:text-xs h-8 sm:h-9 px-1 sm:px-2 truncate" onClick={() => window.open(`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(shareUrl)}`, '_blank')}>
+                <Button variant="outline" className="text-xs h-10 px-2 font-medium" onClick={() => window.open(`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(shareUrl)}`, '_blank')}>
                   LinkedIn
                 </Button>
-                <Button variant="outline" size="sm" className="text-[10px] sm:text-xs h-8 sm:h-9 px-1 sm:px-2 truncate" onClick={() => window.open(`https://www.reddit.com/submit?url=${encodeURIComponent(shareUrl)}&title=${encodeURIComponent(blog.title)}`, '_blank')}>
+                <Button variant="outline" className="text-xs h-10 px-2 font-medium" onClick={() => window.open(`https://www.reddit.com/submit?url=${encodeURIComponent(shareUrl)}&title=${encodeURIComponent(blog.title)}`, '_blank')}>
                   Reddit
+                </Button>
+                <Button variant="outline" className="text-xs h-10 px-2 font-medium" onClick={() => window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(blog.title + ' ' + shareUrl)}`, '_blank')}>
+                  WhatsApp
                 </Button>
               </div>
             </div>
