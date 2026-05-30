@@ -97,6 +97,8 @@ export async function GET(req: Request) {
     const learningUserReposts = !isGuest && learningIds.length > 0 ? await db.liveUpdateRepost.findMany({ where: { entityType: 'learning_topic', entityId: { in: learningIds }, userId: myUserId }, select: { entityId: true } }) : [];
     const learningBookmarks = !isGuest && learningIds.length > 0 ? await db.liveUpdateBookmark.groupBy({ by: ['entityId'], where: { entityType: 'learning_topic', entityId: { in: learningIds } }, _count: true }) : [];
     const learningUserBookmarks = !isGuest && learningIds.length > 0 ? await db.liveUpdateBookmark.findMany({ where: { entityType: 'learning_topic', entityId: { in: learningIds }, userId: myUserId }, select: { entityId: true } }) : [];
+    const learningComments = learningIds.length > 0 ? await db.liveUpdateComment.groupBy({ by: ['entityId'], where: { entityType: 'learning_topic', entityId: { in: learningIds } }, _count: true }) : [];
+    const learningCommentCountMap = new Map(learningComments.map(c => [c.entityId, c._count]));
     const learningLikeCountMap = new Map(learningLikes.map(l => [l.entityId, l._count]));
     const learningRepostCountMap = new Map(learningReposts.map(r => [r.entityId, r._count]));
     const learningBookmarkCountMap = new Map(learningBookmarks.map(b => [b.entityId, b._count]));
@@ -125,6 +127,7 @@ export async function GET(req: Request) {
       likes: learningLikeCountMap.get(t.id) || 0,
       reposts: learningRepostCountMap.get(t.id) || 0,
       bookmarks: learningBookmarkCountMap.get(t.id) || 0,
+      comments: learningCommentCountMap.get(t.id) || 0,
       isLiked: learningUserLikeSet.has(t.id),
       isReposted: learningUserRepostSet.has(t.id),
       isBookmarked: learningUserBookmarkSet.has(t.id),
@@ -164,6 +167,8 @@ export async function GET(req: Request) {
     const contentUserReposts = !isGuest && contentIds.length > 0 ? await db.liveUpdateRepost.findMany({ where: { entityType: 'content_entry', entityId: { in: contentIds }, userId: myUserId }, select: { entityId: true } }) : [];
     const contentBookmarks = !isGuest && contentIds.length > 0 ? await db.liveUpdateBookmark.groupBy({ by: ['entityId'], where: { entityType: 'content_entry', entityId: { in: contentIds } }, _count: true }) : [];
     const contentUserBookmarks = !isGuest && contentIds.length > 0 ? await db.liveUpdateBookmark.findMany({ where: { entityType: 'content_entry', entityId: { in: contentIds }, userId: myUserId }, select: { entityId: true } }) : [];
+    const contentComments = contentIds.length > 0 ? await db.liveUpdateComment.groupBy({ by: ['entityId'], where: { entityType: 'content_entry', entityId: { in: contentIds } }, _count: true }) : [];
+    const contentCommentCountMap = new Map(contentComments.map(c => [c.entityId, c._count]));
     const contentLikeCountMap = new Map(contentLikes.map(l => [l.entityId, l._count]));
     const contentRepostCountMap = new Map(contentReposts.map(r => [r.entityId, r._count]));
     const contentBookmarkCountMap = new Map(contentBookmarks.map(b => [b.entityId, b._count]));
@@ -195,6 +200,7 @@ export async function GET(req: Request) {
       likes: contentLikeCountMap.get(e.id) || 0,
       reposts: contentRepostCountMap.get(e.id) || 0,
       bookmarks: contentBookmarkCountMap.get(e.id) || 0,
+      comments: contentCommentCountMap.get(e.id) || 0,
       isLiked: contentUserLikeSet.has(e.id),
       isReposted: contentUserRepostSet.has(e.id),
       isBookmarked: contentUserBookmarkSet.has(e.id),
@@ -232,6 +238,8 @@ export async function GET(req: Request) {
     const workoutUserReposts = !isGuest && workoutIds.length > 0 ? await db.liveUpdateRepost.findMany({ where: { entityType: 'fitness_workout', entityId: { in: workoutIds }, userId: myUserId }, select: { entityId: true } }) : [];
     const workoutBookmarks = !isGuest && workoutIds.length > 0 ? await db.liveUpdateBookmark.groupBy({ by: ['entityId'], where: { entityType: 'fitness_workout', entityId: { in: workoutIds } }, _count: true }) : [];
     const workoutUserBookmarks = !isGuest && workoutIds.length > 0 ? await db.liveUpdateBookmark.findMany({ where: { entityType: 'fitness_workout', entityId: { in: workoutIds }, userId: myUserId }, select: { entityId: true } }) : [];
+    const workoutComments = workoutIds.length > 0 ? await db.liveUpdateComment.groupBy({ by: ['entityId'], where: { entityType: 'fitness_workout', entityId: { in: workoutIds } }, _count: true }) : [];
+    const workoutCommentCountMap = new Map(workoutComments.map(c => [c.entityId, c._count]));
     const workoutLikeCountMap = new Map(workoutLikes.map(l => [l.entityId, l._count]));
     const workoutRepostCountMap = new Map(workoutReposts.map(r => [r.entityId, r._count]));
     const workoutBookmarkCountMap = new Map(workoutBookmarks.map(b => [b.entityId, b._count]));
@@ -268,6 +276,7 @@ export async function GET(req: Request) {
           likes: workoutLikeCountMap.get(w.id) || 0,
           reposts: workoutRepostCountMap.get(w.id) || 0,
           bookmarks: workoutBookmarkCountMap.get(w.id) || 0,
+          comments: workoutCommentCountMap.get(w.id) || 0,
           isLiked: workoutUserLikeSet.has(w.id),
           isReposted: workoutUserRepostSet.has(w.id),
           isBookmarked: workoutUserBookmarkSet.has(w.id),
@@ -330,6 +339,8 @@ export async function GET(req: Request) {
     const weightUserReposts = !isGuest && weightIds.length > 0 ? await db.liveUpdateRepost.findMany({ where: { entityType: 'fitness_weight', entityId: { in: weightIds }, userId: myUserId }, select: { entityId: true } }) : [];
     const weightBookmarks = !isGuest && weightIds.length > 0 ? await db.liveUpdateBookmark.groupBy({ by: ['entityId'], where: { entityType: 'fitness_weight', entityId: { in: weightIds } }, _count: true }) : [];
     const weightUserBookmarks = !isGuest && weightIds.length > 0 ? await db.liveUpdateBookmark.findMany({ where: { entityType: 'fitness_weight', entityId: { in: weightIds }, userId: myUserId }, select: { entityId: true } }) : [];
+    const weightComments = weightIds.length > 0 ? await db.liveUpdateComment.groupBy({ by: ['entityId'], where: { entityType: 'fitness_weight', entityId: { in: weightIds } }, _count: true }) : [];
+    const weightCommentCountMap = new Map(weightComments.map(c => [c.entityId, c._count]));
     const weightLikeCountMap = new Map(weightLikes.map(l => [l.entityId, l._count]));
     const weightRepostCountMap = new Map(weightReposts.map(r => [r.entityId, r._count]));
     const weightBookmarkCountMap = new Map(weightBookmarks.map(b => [b.entityId, b._count]));
@@ -375,6 +386,7 @@ export async function GET(req: Request) {
         likes: weightLikeCountMap.get(w.id) || 0,
         reposts: weightRepostCountMap.get(w.id) || 0,
         bookmarks: weightBookmarkCountMap.get(w.id) || 0,
+        comments: weightCommentCountMap.get(w.id) || 0,
         isLiked: weightUserLikeSet.has(w.id),
         isReposted: weightUserRepostSet.has(w.id),
         isBookmarked: weightUserBookmarkSet.has(w.id),

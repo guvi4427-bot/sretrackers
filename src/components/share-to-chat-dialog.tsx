@@ -217,8 +217,9 @@ export default function ShareToChatDialog({ isOpen, onClose, shareData }: ShareT
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => { if (!open) { handleClose(); } }}>
-      <DialogContent className="sm:max-w-lg p-3 sm:p-6 overflow-hidden max-w-full">
-        {/* Scrollable inner container to prevent content clipping */}
+      <DialogContent className="sm:max-w-lg p-5 box-border max-h-[85vh] overflow-y-auto overflow-x-hidden w-full max-w-[min(560px,calc(100vw-32px))]">
+        {/* FIX 1: Constrained popup width — max-width: min(560px, calc(100vw - 32px)) */}
+        {/* FIX 4: Padding safety — p-5 box-border overflow-x-hidden */}
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Share2 size={18} />
@@ -258,10 +259,10 @@ export default function ShareToChatDialog({ isOpen, onClose, shareData }: ShareT
             </p>
           </div>
 
-          {/* Share URL — copy button embedded inside to prevent mobile overflow */}
-          <div className="relative w-full">
-            <div className="w-full bg-accent/30 rounded-md pr-10 pl-3 py-2 text-xs text-muted-foreground border border-border/50 overflow-hidden">
-              <p className="truncate">{shareUrl || 'Generating link...'}</p>
+          {/* FIX 2: URL display box — overflow-hidden text-ellipsis whitespace-nowrap box-border min-w-0 */}
+          <div className="relative w-full box-border">
+            <div className="w-full bg-accent/30 rounded-md pr-10 pl-3 py-2 text-xs text-muted-foreground border border-border/50 overflow-hidden box-border">
+              <p className="truncate whitespace-nowrap text-ellipsis overflow-hidden">{shareUrl || 'Generating link...'}</p>
             </div>
             <button
               onClick={copyLink}
@@ -273,38 +274,38 @@ export default function ShareToChatDialog({ isOpen, onClose, shareData }: ShareT
             </button>
           </div>
 
-          {/* External Share Buttons */}
-          <div className="grid grid-cols-3 gap-2">
-            <Button
-              variant="outline"
-              className="text-xs h-10 px-2 font-medium"
+          {/* Share platform buttons — plain buttons, 3 equal columns, guaranteed no overflow */}
+          <div className="grid grid-cols-3 gap-1.5 w-full">
+            <button
+              type="button"
+              className="flex items-center justify-center h-8 rounded-md border border-border bg-background text-[11px] text-foreground hover:bg-accent transition-colors min-w-0 overflow-hidden truncate px-1 disabled:opacity-50"
               onClick={() => {
                 window.open(`https://www.reddit.com/submit?url=${encodeURIComponent(shareUrl)}&title=${encodeURIComponent(safeShareData.preview?.slice(0, 100) || 'Check this out')}`, '_blank');
               }}
               disabled={!shareUrl}
             >
               Reddit
-            </Button>
-            <Button
-              variant="outline"
-              className="text-xs h-10 px-2 font-medium"
+            </button>
+            <button
+              type="button"
+              className="flex items-center justify-center h-8 rounded-md border border-border bg-background text-[11px] text-foreground hover:bg-accent transition-colors min-w-0 overflow-hidden truncate px-1 disabled:opacity-50"
               onClick={() => {
                 window.open(`https://twitter.com/intent/tweet?url=${encodeURIComponent(shareUrl)}&text=${encodeURIComponent(safeShareData.preview?.slice(0, 100) || 'Check this out')}`, '_blank');
               }}
               disabled={!shareUrl}
             >
               X
-            </Button>
-            <Button
-              variant="outline"
-              className="text-xs h-10 px-2 font-medium"
+            </button>
+            <button
+              type="button"
+              className="flex items-center justify-center h-8 rounded-md border border-border bg-background text-[11px] text-foreground hover:bg-accent transition-colors min-w-0 overflow-hidden truncate px-1 disabled:opacity-50"
               onClick={() => {
                 window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent((safeShareData.preview?.slice(0, 100) || 'Check this out') + ' ' + shareUrl)}`, '_blank');
               }}
               disabled={!shareUrl}
             >
               WhatsApp
-            </Button>
+            </button>
           </div>
 
           {activeSection === 'actions' && (

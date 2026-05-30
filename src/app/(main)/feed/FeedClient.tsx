@@ -104,6 +104,9 @@ export default function FeedClient() {
   const [commentPostId, setCommentPostId] = useState<string|null>(null);
   const [commentText, setCommentText] = useState('');
   const [openComments, setOpenComments] = useState<Record<string, any[]>>({});
+  const [liveUpdateComments, setLiveUpdateComments] = useState<Record<string, any[]>>({});
+  const [liveUpdateCommentText, setLiveUpdateCommentText] = useState('');
+  const [liveUpdateCommentTarget, setLiveUpdateCommentTarget] = useState<string|null>(null);
   const abortRef = useRef<AbortController|null>(null);
   const initialLoadRef = useRef(false);
 
@@ -287,12 +290,31 @@ export default function FeedClient() {
             {/* Action bar for live updates */}
             <div className="flex items-center gap-4 mt-2 pt-2 border-t border-border/20">
               <button onClick={() => toggleLiveUpdateLike(update.id, update.entityType || 'content_entry', update.isLiked || false)} className={`flex items-center gap-1 text-xs transition-colors ${update.isLiked ? 'text-rose-400' : 'text-muted-foreground/70 hover:text-rose-400'}`}><Heart size={13} fill={update.isLiked ? 'currentColor' : 'none'} />{update.likes || 0}</button>
-              <button onClick={() => { if (isGuest) { showLoginPrompt('comment'); return; } router.push(isOwn ? '/content' : `/profile/${update.user?.id}`); }} className="flex items-center gap-1 text-xs text-muted-foreground/70 hover:text-cyan-400 transition-colors"><MessageCircle size={13} />{update.comments || 0}</button>
+              <button onClick={() => toggleLiveUpdateCommentSection(update.id, update.entityType || 'content_entry')} className="flex items-center gap-1 text-xs text-muted-foreground/70 hover:text-cyan-400 transition-colors"><MessageCircle size={13} />{update.comments || 0}</button>
               <button onClick={() => toggleLiveUpdateRepost(update.id, update.entityType || 'content_entry', update.isReposted || false)} className={`flex items-center gap-1 text-xs transition-colors ${update.isReposted ? 'text-green-400' : 'text-muted-foreground/70 hover:text-green-400'}`}><Repeat2 size={13} />{update.reposts || 0}</button>
               <button onClick={() => openShareDialog({ type: 'content_update', id: update.id, preview: update.title || 'Content update', userName: update.user?.name, username: update.user?.username, extra: { contentType: update.contentType, status: update.liveStatus, entityType: update.entityType || 'content_entry' } })} className="flex items-center gap-1 text-xs text-muted-foreground/70 hover:text-blue-400 transition-colors"><Share2 size={13} /></button>
               <button onClick={() => toggleLiveUpdateBookmark(update.id, update.entityType || 'content_entry', update.isBookmarked || false)} className={`flex items-center gap-1 text-xs transition-colors ${update.isBookmarked ? 'text-amber-400' : 'text-muted-foreground/70 hover:text-amber-400'}`}><Bookmark size={13} fill={update.isBookmarked ? 'currentColor' : 'none'} /></button>
               <button onClick={() => openLiveUpdateReport(update.id, update.entityType || 'content_entry')} className="text-muted-foreground/60 hover:text-amber-400 ml-auto transition-colors"><Flag size={12} /></button>
             </div>
+            {/* Inline comment section for content update */}
+            {liveUpdateCommentTarget === update.id && (
+              <div className="mt-3 pt-3 border-t border-border/20 space-y-2">
+                <div className="flex gap-2">
+                  <Input value={liveUpdateCommentTarget === update.id ? liveUpdateCommentText : ''} onChange={e => setLiveUpdateCommentText(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') addLiveUpdateComment(update.id, update.entityType || 'content_entry'); }} placeholder="Write a comment..." className="bg-accent border-border text-foreground text-xs h-8" />
+                  <Button onClick={() => addLiveUpdateComment(update.id, update.entityType || 'content_entry')} size="icon" className="gradient-blue shrink-0 h-8 w-8" disabled={!liveUpdateCommentText.trim()}><Send size={12} /></Button>
+                </div>
+                {(liveUpdateComments[update.id] || []).map((c: any) => (
+                  <div key={c.id} className="flex items-start gap-2 p-2 rounded-lg bg-accent/20">
+                    <Avatar className="h-6 w-6 border border-border shrink-0"><AvatarFallback className="bg-blue-600/20 text-blue-300 text-[9px]">{c.user?.profile?.name?.[0] || c.user?.username?.[0] || '?'}</AvatarFallback></Avatar>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[10px] font-medium text-foreground">{c.user?.profile?.name || c.user?.username || 'User'}{c.user?.profile?.verified && <span className="text-blue-400 text-[8px] ml-0.5">✓</span>}</p>
+                      <p className="text-[10px] text-muted-foreground">{c.content}</p>
+                    </div>
+                  </div>
+                ))}
+                {(!liveUpdateComments[update.id] || liveUpdateComments[update.id].length === 0) && <p className="text-[10px] text-muted-foreground/50 text-center">No comments yet</p>}
+              </div>
+            )}
           </div>
         </div>
       </GlassCard>
@@ -443,12 +465,31 @@ export default function FeedClient() {
             {/* Action bar for live updates */}
             <div className="flex items-center gap-4 mt-2 pt-2 border-t border-border/20">
               <button onClick={() => toggleLiveUpdateLike(update.id, update.entityType || (update.subType === 'weight' ? 'fitness_weight' : 'fitness_workout'), update.isLiked || false)} className={`flex items-center gap-1 text-xs transition-colors ${update.isLiked ? 'text-rose-400' : 'text-muted-foreground/70 hover:text-rose-400'}`}><Heart size={13} fill={update.isLiked ? 'currentColor' : 'none'} />{update.likes || 0}</button>
-              <button onClick={() => { if (isGuest) { showLoginPrompt('comment'); return; } router.push(isOwn ? '/fitness' : `/profile/${update.user?.id}`); }} className="flex items-center gap-1 text-xs text-muted-foreground/70 hover:text-cyan-400 transition-colors"><MessageCircle size={13} />{update.comments || 0}</button>
+              <button onClick={() => toggleLiveUpdateCommentSection(update.id, update.entityType || (update.subType === 'weight' ? 'fitness_weight' : 'fitness_workout'))} className="flex items-center gap-1 text-xs text-muted-foreground/70 hover:text-cyan-400 transition-colors"><MessageCircle size={13} />{update.comments || 0}</button>
               <button onClick={() => toggleLiveUpdateRepost(update.id, update.entityType || (update.subType === 'weight' ? 'fitness_weight' : 'fitness_workout'), update.isReposted || false)} className={`flex items-center gap-1 text-xs transition-colors ${update.isReposted ? 'text-green-400' : 'text-muted-foreground/70 hover:text-green-400'}`}><Repeat2 size={13} />{update.reposts || 0}</button>
               <button onClick={() => openShareDialog({ type: 'fitness_update', id: update.id, preview: update.subType === 'weight' ? `Weight: ${update.weight}kg` : `${update.workoutType || 'Workout'} ${update.duration ? update.duration + 'min' : ''}${update.estimatedCalories ? ' ' + update.estimatedCalories + 'cal' : ''}`, userName: update.user?.name, username: update.user?.username, extra: { fitnessType: update.subType || 'workout', entityType: update.entityType || (update.subType === 'weight' ? 'fitness_weight' : 'fitness_workout') } })} className="flex items-center gap-1 text-xs text-muted-foreground/70 hover:text-blue-400 transition-colors"><Share2 size={13} /></button>
               <button onClick={() => toggleLiveUpdateBookmark(update.id, update.entityType || (update.subType === 'weight' ? 'fitness_weight' : 'fitness_workout'), update.isBookmarked || false)} className={`flex items-center gap-1 text-xs transition-colors ${update.isBookmarked ? 'text-amber-400' : 'text-muted-foreground/70 hover:text-amber-400'}`}><Bookmark size={13} fill={update.isBookmarked ? 'currentColor' : 'none'} /></button>
               <button onClick={() => openLiveUpdateReport(update.id, update.entityType || (update.subType === 'weight' ? 'fitness_weight' : 'fitness_workout'))} className="text-muted-foreground/60 hover:text-amber-400 ml-auto transition-colors"><Flag size={12} /></button>
             </div>
+            {/* Inline comment section for fitness update */}
+            {liveUpdateCommentTarget === update.id && (
+              <div className="mt-3 pt-3 border-t border-border/20 space-y-2">
+                <div className="flex gap-2">
+                  <Input value={liveUpdateCommentTarget === update.id ? liveUpdateCommentText : ''} onChange={e => setLiveUpdateCommentText(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') addLiveUpdateComment(update.id, update.entityType || (update.subType === 'weight' ? 'fitness_weight' : 'fitness_workout')); }} placeholder="Write a comment..." className="bg-accent border-border text-foreground text-xs h-8" />
+                  <Button onClick={() => addLiveUpdateComment(update.id, update.entityType || (update.subType === 'weight' ? 'fitness_weight' : 'fitness_workout'))} size="icon" className="gradient-blue shrink-0 h-8 w-8" disabled={!liveUpdateCommentText.trim()}><Send size={12} /></Button>
+                </div>
+                {(liveUpdateComments[update.id] || []).map((c: any) => (
+                  <div key={c.id} className="flex items-start gap-2 p-2 rounded-lg bg-accent/20">
+                    <Avatar className="h-6 w-6 border border-border shrink-0"><AvatarFallback className="bg-blue-600/20 text-blue-300 text-[9px]">{c.user?.profile?.name?.[0] || c.user?.username?.[0] || '?'}</AvatarFallback></Avatar>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[10px] font-medium text-foreground">{c.user?.profile?.name || c.user?.username || 'User'}{c.user?.profile?.verified && <span className="text-blue-400 text-[8px] ml-0.5">✓</span>}</p>
+                      <p className="text-[10px] text-muted-foreground">{c.content}</p>
+                    </div>
+                  </div>
+                ))}
+                {(!liveUpdateComments[update.id] || liveUpdateComments[update.id].length === 0) && <p className="text-[10px] text-muted-foreground/50 text-center">No comments yet</p>}
+              </div>
+            )}
           </div>
         </div>
       </GlassCard>
@@ -533,12 +574,31 @@ export default function FeedClient() {
             {/* Action bar for live updates */}
             <div className="flex items-center gap-4 mt-2 pt-2 border-t border-border/20">
               <button onClick={() => toggleLiveUpdateLike(update.id, update.entityType || 'learning_topic', update.isLiked || false)} className={`flex items-center gap-1 text-xs transition-colors ${update.isLiked ? 'text-rose-400' : 'text-muted-foreground/70 hover:text-rose-400'}`}><Heart size={13} fill={update.isLiked ? 'currentColor' : 'none'} />{update.likes || 0}</button>
-              <button onClick={() => { if (isGuest) { showLoginPrompt('comment'); return; } router.push(`/shared-topic/${update.id}?from=feed`); }} className="flex items-center gap-1 text-xs text-muted-foreground/70 hover:text-cyan-400 transition-colors"><MessageCircle size={13} />{update.comments || 0}</button>
+              <button onClick={() => toggleLiveUpdateCommentSection(update.id, update.entityType || 'learning_topic')} className="flex items-center gap-1 text-xs text-muted-foreground/70 hover:text-cyan-400 transition-colors"><MessageCircle size={13} />{update.comments || 0}</button>
               <button onClick={() => toggleLiveUpdateRepost(update.id, update.entityType || 'learning_topic', update.isReposted || false)} className={`flex items-center gap-1 text-xs transition-colors ${update.isReposted ? 'text-green-400' : 'text-muted-foreground/70 hover:text-green-400'}`}><Repeat2 size={13} />{update.reposts || 0}</button>
               <button onClick={() => openShareDialog({ type: 'learning_update', id: update.id, preview: update.name || 'Learning topic', userName: update.user?.name, username: update.user?.username, extra: { entityType: update.entityType || 'learning_topic' } })} className="flex items-center gap-1 text-xs text-muted-foreground/70 hover:text-blue-400 transition-colors"><Share2 size={13} /></button>
               <button onClick={() => toggleLiveUpdateBookmark(update.id, update.entityType || 'learning_topic', update.isBookmarked || false)} className={`flex items-center gap-1 text-xs transition-colors ${update.isBookmarked ? 'text-amber-400' : 'text-muted-foreground/70 hover:text-amber-400'}`}><Bookmark size={13} fill={update.isBookmarked ? 'currentColor' : 'none'} /></button>
               <button onClick={() => openLiveUpdateReport(update.id, update.entityType || 'learning_topic')} className="text-muted-foreground/60 hover:text-amber-400 ml-auto transition-colors"><Flag size={12} /></button>
             </div>
+            {/* Inline comment section for learning update */}
+            {liveUpdateCommentTarget === update.id && (
+              <div className="mt-3 pt-3 border-t border-border/20 space-y-2">
+                <div className="flex gap-2">
+                  <Input value={liveUpdateCommentTarget === update.id ? liveUpdateCommentText : ''} onChange={e => setLiveUpdateCommentText(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') addLiveUpdateComment(update.id, update.entityType || 'learning_topic'); }} placeholder="Write a comment..." className="bg-accent border-border text-foreground text-xs h-8" />
+                  <Button onClick={() => addLiveUpdateComment(update.id, update.entityType || 'learning_topic')} size="icon" className="gradient-blue shrink-0 h-8 w-8" disabled={!liveUpdateCommentText.trim()}><Send size={12} /></Button>
+                </div>
+                {(liveUpdateComments[update.id] || []).map((c: any) => (
+                  <div key={c.id} className="flex items-start gap-2 p-2 rounded-lg bg-accent/20">
+                    <Avatar className="h-6 w-6 border border-border shrink-0"><AvatarFallback className="bg-blue-600/20 text-blue-300 text-[9px]">{c.user?.profile?.name?.[0] || c.user?.username?.[0] || '?'}</AvatarFallback></Avatar>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[10px] font-medium text-foreground">{c.user?.profile?.name || c.user?.username || 'User'}{c.user?.profile?.verified && <span className="text-blue-400 text-[8px] ml-0.5">✓</span>}</p>
+                      <p className="text-[10px] text-muted-foreground">{c.content}</p>
+                    </div>
+                  </div>
+                ))}
+                {(!liveUpdateComments[update.id] || liveUpdateComments[update.id].length === 0) && <p className="text-[10px] text-muted-foreground/50 text-center">No comments yet</p>}
+              </div>
+            )}
           </div>
         </div>
       </GlassCard>
@@ -876,6 +936,60 @@ export default function FeedClient() {
         toast.success('Post deleted');
       }
     } catch {}
+  }
+
+  // ── Live Update Comments ──
+  async function loadLiveUpdateComments(updateId: string, entityType: string) {
+    try {
+      const r = await fetch(`/api/live-updates/${updateId}/comments?entityType=${encodeURIComponent(entityType)}`);
+      if (r.ok) {
+        const d = await r.json();
+        setLiveUpdateComments(p => ({ ...p, [updateId]: d.comments || [] }));
+      }
+    } catch {}
+  }
+
+  async function addLiveUpdateComment(updateId: string, entityType: string) {
+    if (isGuest) { showLoginPrompt('comment'); return; }
+    if (!liveUpdateCommentText.trim()) return;
+    try {
+      const r = await fetch(`/api/live-updates/${updateId}/comments?entityType=${encodeURIComponent(entityType)}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content: liveUpdateCommentText.trim() }),
+      });
+      if (r.ok) {
+        const d = await r.json();
+        const comment = d.comment || d;
+        setLiveUpdateComments(p => ({ ...p, [updateId]: [comment, ...(p[updateId] || [])] }));
+        setLiveUpdateCommentText('');
+        toast.success('+3 XP');
+        // Defer XP event to avoid triggering fetchLiveUpdates() which unmounts the focused input on mobile
+        setTimeout(() => {
+          window.dispatchEvent(new CustomEvent('xp-updated'));
+          window.dispatchEvent(new CustomEvent('notification-updated'));
+        }, 500);
+      } else {
+        const d = await r.json().catch(() => ({}));
+        if (d.error === 'Unauthorized') {
+          toast.error('Please sign in to comment');
+        }
+      }
+    } catch {
+      toast.error('Network error — please try again');
+    }
+  }
+
+  function toggleLiveUpdateCommentSection(updateId: string, entityType: string) {
+    if (isGuest) { showLoginPrompt('comment'); return; }
+    if (liveUpdateCommentTarget === updateId) {
+      setLiveUpdateCommentTarget(null);
+    } else {
+      setLiveUpdateCommentTarget(updateId);
+      if (!liveUpdateComments[updateId]) {
+        loadLiveUpdateComments(updateId, entityType);
+      }
+    }
   }
 
   const [reportOpen, setReportOpen] = useState(false);

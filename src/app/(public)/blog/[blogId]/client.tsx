@@ -359,7 +359,7 @@ export default function BlogDetailClient() {
 
       {/* Share Dialog */}
       <Dialog open={shareDialogOpen} onOpenChange={setShareDialogOpen}>
-        <DialogContent className="sm:max-w-lg p-3 sm:p-6 overflow-hidden max-w-full">
+        <DialogContent className="sm:max-w-lg p-5 box-border max-h-[85vh] overflow-y-auto overflow-x-hidden w-full max-w-[min(560px,calc(100vw-32px))]">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2"><Share2 size={18} /> Share This Blog</DialogTitle>
           </DialogHeader>
@@ -385,20 +385,20 @@ export default function BlogDetailClient() {
               <Button variant="outline" onClick={() => { window.open(shareUrl, '_blank'); setShareDialogOpen(false); }} className="w-full">
                 <ExternalLink size={16} className="mr-2" /> Open in New Tab
               </Button>
-              {/* Social share buttons */}
-              <div className="grid grid-cols-2 gap-2">
-                <Button variant="outline" className="text-xs h-10 px-2 font-medium" onClick={() => window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(blog.title)}&url=${encodeURIComponent(shareUrl)}`, '_blank')}>
+              {/* Social share buttons — plain buttons, 2x2 grid, guaranteed no overflow */}
+              <div className="grid grid-cols-2 gap-1.5 w-full">
+                <button type="button" className="flex items-center justify-center h-8 rounded-md border border-border bg-background text-[11px] text-foreground hover:bg-accent transition-colors min-w-0 overflow-hidden truncate px-1" onClick={() => window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(blog.title)}&url=${encodeURIComponent(shareUrl)}`, '_blank')}>
                   X
-                </Button>
-                <Button variant="outline" className="text-xs h-10 px-2 font-medium" onClick={() => window.open(`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(shareUrl)}`, '_blank')}>
+                </button>
+                <button type="button" className="flex items-center justify-center h-8 rounded-md border border-border bg-background text-[11px] text-foreground hover:bg-accent transition-colors min-w-0 overflow-hidden truncate px-1" onClick={() => window.open(`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(shareUrl)}`, '_blank')}>
                   LinkedIn
-                </Button>
-                <Button variant="outline" className="text-xs h-10 px-2 font-medium" onClick={() => window.open(`https://www.reddit.com/submit?url=${encodeURIComponent(shareUrl)}&title=${encodeURIComponent(blog.title)}`, '_blank')}>
+                </button>
+                <button type="button" className="flex items-center justify-center h-8 rounded-md border border-border bg-background text-[11px] text-foreground hover:bg-accent transition-colors min-w-0 overflow-hidden truncate px-1" onClick={() => window.open(`https://www.reddit.com/submit?url=${encodeURIComponent(shareUrl)}&title=${encodeURIComponent(blog.title)}`, '_blank')}>
                   Reddit
-                </Button>
-                <Button variant="outline" className="text-xs h-10 px-2 font-medium" onClick={() => window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(blog.title + ' ' + shareUrl)}`, '_blank')}>
+                </button>
+                <button type="button" className="flex items-center justify-center h-8 rounded-md border border-border bg-background text-[11px] text-foreground hover:bg-accent transition-colors min-w-0 overflow-hidden truncate px-1" onClick={() => window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(blog.title + ' ' + shareUrl)}`, '_blank')}>
                   WhatsApp
-                </Button>
+                </button>
               </div>
             </div>
           </div>

@@ -70,6 +70,7 @@ model User {
   liveUpdateLikes    LiveUpdateLike[]
   liveUpdateReposts  LiveUpdateRepost[]
   liveUpdateBookmarks LiveUpdateBookmark[]
+  liveUpdateComments  LiveUpdateComment[]
 
   blogs              Blog[]
   blogLikes          BlogLike[]
@@ -807,6 +808,20 @@ model LiveUpdateBookmark {
 
   @@unique([entityType, entityId, userId])
   @@index([entityType, entityId])
+}
+
+model LiveUpdateComment {
+  id         String   @id @default(cuid())
+  userId     String
+  entityType String   // content_entry, fitness_workout, fitness_weight, learning_topic
+  entityId   String
+  content    String
+  createdAt  DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([entityType, entityId])
+  @@index([userId])
 }
 
 // ─── Blog Models ───
