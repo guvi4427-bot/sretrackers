@@ -21,6 +21,39 @@ export const metadata: Metadata = {
   },
 };
 
-export default function BlogPage() {
-  return <BlogPageClient />;
+export default async function BlogPage() {
+  // Fetch recent blogs server-side so crawlers see real content
+  let recentBlogs: { id: string; slug?: string; title: string; excerpt?: string }[] = [];
+  try {
+    const baseUrl = process.env.NEXTAUTH_URL || process.env.NEXT_PUBLIC_SITE_URL || 'https://sretrack.vercel.app';
+    const res = await fetch(`${baseUrl}/api/blogs?limit=20&status=published`, {
+      cache: 'no-store',
+      headers: { 'x-internal': '1' },
+    });
+    if (res.ok) {
+      const data = await res.json();
+      recentBlogs = data.blogs || [];
+    }
+  } catch {
+    // Fail silently — BlogPageClient will load content normally
+  }
+
+  return (
+    <main>
+      <h1 className="sr-only">SRE Track Blog — Self-Growth Articles on Fitness, Learning, and Productivity</h1>
+      {recentBlogs.length > 0 && (
+        <nav aria-label="Recent blog posts" className="sr-only">
+          <ul>
+            {recentBlogs.map((blog) => (
+              <li key={blog.id}>
+                <a href={`/blog/${blog.slug || blog.id}`}>{blog.title}</a>
+                {blog.excerpt && <p>{blog.excerpt}</p>}
+              </li>
+            ))}
+          </ul>
+        </nav>
+      )}
+      <BlogPageClient />
+    </main>
+  );
 }

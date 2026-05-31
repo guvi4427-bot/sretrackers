@@ -23,13 +23,10 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
     }
   }, [sessionStatus]);
 
-  // Wait for both mount and session resolution before rendering
+  // During SSR and initial hydration, render children immediately so crawlers
+  // receive full page HTML. Shell wraps after hydration.
   if (!mounted || sessionStatus === 'loading') {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-400" />
-      </div>
-    );
+    return <>{children}</>;
   }
 
   // Authenticated users ALWAYS get AppShell — never GuestShell

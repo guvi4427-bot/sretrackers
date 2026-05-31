@@ -21,13 +21,10 @@ export default function PublicLayout({ children }: { children: React.ReactNode }
     }
   }, [sessionStatus]);
 
-  // Wait for mount and session resolution
+  // During SSR and initial hydration, render children immediately so crawlers
+  // receive full page HTML. The shell (AppShell/GuestShell) wraps after mount.
   if (!mounted || sessionStatus === 'loading') {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-400" />
-      </div>
-    );
+    return <>{children}</>;
   }
 
   // Authenticated users get AppShell

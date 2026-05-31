@@ -93,6 +93,19 @@ export default function robots(): MetadataRoute.Robots {
         allow: "/",
       },
       {
+        userAgent: "Gemini-Web-Crawler",
+        allow: "/",
+      },
+      {
+        userAgent: "Google-Extended",
+        allow: "/",
+      },
+      {
+        userAgent: "CCBot",
+        allow: "/",
+        crawlDelay: 5,
+      },
+      {
         userAgent: "*",
         allow: "/",
         disallow: [

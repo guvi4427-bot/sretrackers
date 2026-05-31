@@ -160,6 +160,19 @@ async function getBlogPostingSchema({ params }: { params: Promise<{ blogId: stri
 
 export default async function BlogDetailPage({ params }: { params: Promise<{ blogId: string }> }) {
   const schema = await getBlogPostingSchema({ params });
+  const { blogId } = await params;
+
+  // Fetch blog content server-side for crawler visibility
+  let blogContent: { title: string; content?: string; excerpt?: string } | null = null;
+  try {
+    let blog = await db.blog.findUnique({ where: { id: blogId } });
+    if (!blog) blog = await db.blog.findUnique({ where: { slug: blogId } });
+    if (blog && blog.status === 'published') {
+      blogContent = { title: blog.title, content: blog.content, excerpt: blog.excerpt ?? undefined };
+    }
+  } catch {
+    // Fail silently — BlogDetailClient renders normally regardless
+  }
 
   return (
     <>
@@ -168,6 +181,13 @@ export default async function BlogDetailPage({ params }: { params: Promise<{ blo
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(schema) }}
         />
+      )}
+      {blogContent && (
+        <article className="sr-only">
+          <h1>{blogContent.title}</h1>
+          {blogContent.excerpt && <p>{blogContent.excerpt}</p>}
+          {blogContent.content && <div>{blogContent.content}</div>}
+        </article>
       )}
       <BlogDetailClient />
     </>
