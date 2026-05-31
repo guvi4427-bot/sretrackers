@@ -541,7 +541,7 @@ export default function FitnessClient() {
               <div className="flex items-center justify-center py-6">
                 <Loader2 className="w-5 h-5 text-blue-400 animate-spin" />
               </div>
-            ) : !fitnessProfile ? (
+            ) : (!fitnessProfile || editProfile) ? (
               <div className="space-y-4">
                 {/* Unit System Toggle */}
                 <div className="flex items-center gap-2">
