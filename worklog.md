@@ -26,3 +26,30 @@ Stage Summary:
 - Robots.txt includes AI crawler rules
 - Vercel env vars are set for production
 - Post-deploy actions remaining: Google Search Console setup (manual, user action)
+
+---
+Task ID: AI-Macro-1
+Agent: Main Agent
+Task: Replace algorithm-based macro calculation with AI-based calculation (with fallback)
+
+Work Log:
+- Read src/app/api/fitness/profile/route.ts and src/lib/ai-provider.ts thoroughly
+- Added import: `import { aiQuickCall } from '@/lib/ai-provider'`
+- Kept calculateTDEE() completely untouched as the fallback
+- Added new async function calculateMacrosWithAI() before GET handler
+  - Computes algorithm fallback first (always available)
+  - Calls aiQuickCall with structured nutrition prompt
+  - Validates AI response: JSON extraction, field presence, type checking, range validation
+  - Falls back gracefully on: null response, no JSON, missing fields, out-of-range values, any error
+  - Logs source=ai or source=algorithm with reason for observability
+- Updated POST handler: `calculateTDEE()` → `await calculateMacrosWithAI()`
+- Updated PATCH handler: `calculateTDEE()` → `await calculateMacrosWithAI()`
+- Did NOT touch: calculateTDEE, GET handler, DB logic, ACTIVITY/GOAL_MULTIPLIERS, ai-provider.ts, OnboardingClient.tsx
+- Build succeeded with zero errors
+- Pushed to GitHub (commit e252ae1), auto-deploy triggered
+
+Stage Summary:
+- AI-powered macro calculation is now live for fitness profile creation and updates
+- Graceful degradation: if AI is unavailable, algorithm fallback ensures targets are always saved
+- AI considers weight, height, age, gender, activity level, and goal for personalized targets
+- All existing functionality preserved — no breakage
