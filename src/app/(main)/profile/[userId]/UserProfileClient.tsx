@@ -18,7 +18,7 @@ import { t } from '@/lib/i18n';
 import { safeJsonParse } from '@/lib/utils';
 import { useParams, useSearchParams } from 'next/navigation';
 import { useRouter } from 'next/navigation';
-import { WeightChart, WorkoutChart } from '@/app/(main)/fitness/_charts';
+import { WorkoutChart } from '@/app/(main)/fitness/_charts';
 import { useGuest } from '@/components/guest-guard';
 
 const phaseConfig: Record<string, { icon: any; color: string; bg: string; nameKey: string }> = {
@@ -503,13 +503,7 @@ export default function UserProfileClient() {
             <Dumbbell size={16} className="text-blue-400" />
             <h3 className="text-sm font-medium text-muted-foreground">Fitness Progress</h3>
           </div>
-          {sharedWeightLogs.length > 1 && (
-            <div className="mb-4">
-              <p className="text-xs text-muted-foreground/60 mb-2">Weight Trend</p>
-              <WeightChart data={sharedWeightLogs.slice(-30).map((w: any) => ({ date: w.date?.slice(5) || w.date, weight: w.weight }))} />
-            </div>
-          )}
-          {sharedWeightLogs.length === 1 && (
+          {sharedWeightLogs.length > 0 && (
             <div className="mb-3">
               <p className="text-xs text-muted-foreground/60 mb-2">Weight Log</p>
               <div className="flex gap-2 flex-wrap">

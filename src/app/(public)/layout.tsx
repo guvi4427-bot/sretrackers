@@ -41,6 +41,10 @@ export default function PublicLayout({ children }: { children: React.ReactNode }
     return <GuestShell>{children}</GuestShell>;
   }
 
-  // Not authenticated and not guest — AppShell will redirect to login
-  return <AppShell>{children}</AppShell>;
+  // Not authenticated and not guest — render children directly.
+  // Public pages (landing, about, contact, terms, etc.) have their own
+  // full-page layouts and don't need AppShell.  Using AppShell here would
+  // cause an immediate client-side redirect to /login before the landing
+  // page ever renders.
+  return <>{children}</>;
 }
