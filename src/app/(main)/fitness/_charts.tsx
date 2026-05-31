@@ -90,11 +90,41 @@ export function WorkoutChart({ data }: { data: WorkoutData[] }) {
 }
 
 /**
+ * Safely parse a date string into a timestamp.
+ * Handles: YYYY-MM-DD, YYYY-MM-DDTHH:mm:ss, MM/DD, MM-DD, and more.
+ * Returns NaN if unparseable.
+ */
+function safeParseDate(raw: string): number {
+  if (!raw) return NaN;
+  // Already a full ISO string
+  const direct = Date.parse(raw);
+  if (!isNaN(direct)) return direct;
+  // Try YYYY-MM-DD explicitly (split and construct to avoid timezone issues)
+  const isoMatch = raw.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+  if (isoMatch) {
+    const [, y, m, d] = isoMatch;
+    return Date.parse(`${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}T00:00:00`);
+  }
+  // Try MM/DD or MM-DD
+  const mdMatch = raw.match(/^(\d{1,2})[/-](\d{1,2})$/);
+  if (mdMatch) {
+    const year = new Date().getFullYear();
+    const [, m, d] = mdMatch;
+    return Date.parse(`${year}-${m.padStart(2, '0')}-${d.padStart(2, '0')}T00:00:00`);
+  }
+  return NaN;
+}
+
+const MONTH_NAMES = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+function formatDateLabel(ts: number): string {
+  const d = new Date(ts);
+  return `${MONTH_NAMES[d.getMonth()]} ${d.getDate()}`;
+}
+
+/**
  * WeightChart — shows daily entries for the first week, then switches to weekly trend.
- *
- * Props:
- *   data: array of { date: string (ISO or YYYY-MM-DD), weight: number }
- *   The component parses dates and decides the display mode automatically.
+ * Falls back to simple display if dates can't be parsed.
  */
 export function WeightChart({ data }: { data: { date: string; weight: number }[] }) {
   if (!data || data.length === 0) {
@@ -109,17 +139,9 @@ export function WeightChart({ data }: { data: { date: string; weight: number }[]
     );
   }
 
-  // ---------- Parse dates ----------
-  const parsed = data
-    .map(d => {
-      const raw = typeof d.date === 'string' ? d.date : String(d.date ?? '');
-      const dateOnly = raw.includes('T') ? raw.split('T')[0] : raw.slice(0, 10);
-      const ms = Date.parse(dateOnly);
-      return { ...d, ts: ms, dateObj: isNaN(ms) ? null : new Date(ms) };
-    })
-    .filter(d => d.dateObj && !isNaN(Number(d.weight)));
-
-  if (parsed.length === 0) {
+  // Filter out entries with NaN weight
+  const validData = data.filter(d => !isNaN(Number(d.weight)));
+  if (validData.length === 0) {
     return (
       <div className="h-64 w-full flex items-center justify-center">
         <div className="text-center text-muted-foreground">
@@ -130,62 +152,71 @@ export function WeightChart({ data }: { data: { date: string; weight: number }[]
     );
   }
 
-  // Sort chronologically
-  parsed.sort((a, b) => a.ts - b.ts);
+  // Try to parse all dates; track how many succeed
+  const withTs = validData.map(d => {
+    const raw = typeof d.date === 'string' ? d.date : String(d.date ?? '');
+    const ts = safeParseDate(raw);
+    return { ...d, ts, raw };
+  });
 
-  // ---------- Decide: daily vs weekly ----------
-  const firstTs = parsed[0].ts;
-  const lastTs = parsed[parsed.length - 1].ts;
-  const daySpan = Math.round((lastTs - firstTs) / 86400000);
-  const useWeekly = daySpan > 7 || parsed.length > 7;
-
-  const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const parseableCount = withTs.filter(d => !isNaN(d.ts)).length;
+  const canAggregate = parseableCount === withTs.length && parseableCount > 1;
 
   let chartData: { date: string; weight: number }[];
+  let useWeekly = false;
 
-  if (useWeekly) {
-    // ---------- Weekly aggregation ----------
-    // First 7 days: show daily entries
-    const sevenDaysMs = 7 * 86400000;
-    const dailyEntries = parsed.filter(d => d.ts - firstTs <= sevenDaysMs);
-    const weeklyEntries = parsed.filter(d => d.ts - firstTs > sevenDaysMs);
+  if (canAggregate) {
+    // Sort by timestamp
+    withTs.sort((a, b) => a.ts - b.ts);
 
-    // Group weekly entries into 7-day buckets starting from firstTs + 7d
-    const weekBuckets = new Map<number, { sum: number; count: number; startDate: Date }>();
-    for (const entry of weeklyEntries) {
-      const weekIndex = Math.floor((entry.ts - firstTs - sevenDaysMs) / 86400000 / 7);
-      const weekStartTs = firstTs + sevenDaysMs + weekIndex * 7 * 86400000;
-      if (!weekBuckets.has(weekStartTs)) {
-        weekBuckets.set(weekStartTs, { sum: 0, count: 0, startDate: new Date(weekStartTs) });
+    const firstTs = withTs[0].ts;
+    const lastTs = withTs[withTs.length - 1].ts;
+    const daySpan = Math.round((lastTs - firstTs) / 86400000);
+    useWeekly = daySpan > 7 || withTs.length > 7;
+
+    if (useWeekly) {
+      // First 7 days: daily entries
+      const sevenDaysMs = 7 * 86400000;
+      const dailyEntries = withTs.filter(d => d.ts - firstTs <= sevenDaysMs);
+      const weeklyEntries = withTs.filter(d => d.ts - firstTs > sevenDaysMs);
+
+      // Group into 7-day buckets
+      const weekBuckets = new Map<number, { sum: number; count: number }>();
+      for (const entry of weeklyEntries) {
+        const weekIndex = Math.floor((entry.ts - firstTs - sevenDaysMs) / 86400000 / 7);
+        const weekStartTs = firstTs + sevenDaysMs + weekIndex * 7 * 86400000;
+        if (!weekBuckets.has(weekStartTs)) {
+          weekBuckets.set(weekStartTs, { sum: 0, count: 0 });
+        }
+        const bucket = weekBuckets.get(weekStartTs)!;
+        bucket.sum += Number(entry.weight);
+        bucket.count += 1;
       }
-      const bucket = weekBuckets.get(weekStartTs)!;
-      bucket.sum += Number(entry.weight);
-      bucket.count += 1;
-    }
 
-    // Build daily portion with formatted labels
-    const dailyData = dailyEntries.map(d => ({
-      date: `${monthNames[d.dateObj!.getMonth()]} ${d.dateObj!.getDate()}`,
-      weight: Number(d.weight),
-    }));
+      const dailyData = dailyEntries.map(d => ({
+        date: formatDateLabel(d.ts),
+        weight: Number(d.weight),
+      }));
 
-    // Build weekly portion with "W2 (Jan 12)" style labels
-    const weeklyData = Array.from(weekBuckets.entries())
-      .sort(([a], [b]) => a - b)
-      .map(([weekStartTs, bucket], idx) => {
-        const sd = bucket.startDate;
-        const weekNum = idx + 2; // Week 1 is the daily portion
-        return {
-          date: `W${weekNum} (${monthNames[sd.getMonth()]} ${sd.getDate()})`,
+      const weeklyData = Array.from(weekBuckets.entries())
+        .sort(([a], [b]) => a - b)
+        .map(([weekStartTs, bucket], idx) => ({
+          date: `W${idx + 2} (${formatDateLabel(weekStartTs)})`,
           weight: Math.round((bucket.sum / bucket.count) * 10) / 10,
-        };
-      });
+        }));
 
-    chartData = [...dailyData, ...weeklyData];
+      chartData = [...dailyData, ...weeklyData];
+    } else {
+      // Daily only (≤7 entries)
+      chartData = withTs.map(d => ({
+        date: formatDateLabel(d.ts),
+        weight: Number(d.weight),
+      }));
+    }
   } else {
-    // ---------- Daily only (≤7 days) ----------
-    chartData = parsed.map(d => ({
-      date: `${monthNames[d.dateObj!.getMonth()]} ${d.dateObj!.getDate()}`,
+    // Fallback: can't parse dates — use labels as-is, just ensure data displays
+    chartData = validData.map(d => ({
+      date: typeof d.date === 'string' ? d.date : String(d.date ?? ''),
       weight: Number(d.weight),
     }));
   }
@@ -195,7 +226,7 @@ export function WeightChart({ data }: { data: { date: string; weight: number }[]
     chartData = [chartData[0], { ...chartData[0] }];
   }
 
-  // Fixed Y domain with padding — prevents collapse when all values are identical
+  // Fixed Y domain with padding
   const weights = chartData.map(d => d.weight).filter(v => !isNaN(v));
   const minW = Math.min(...weights);
   const maxW = Math.max(...weights);
@@ -206,7 +237,7 @@ export function WeightChart({ data }: { data: { date: string; weight: number }[]
   return (
     <div className="h-64 w-full">
       <ResponsiveContainer width="100%" height="100%">
-        <LineChart data={chartData} margin={{ top: 8, right: 8, left: 0, bottom: 4 }}>
+        <LineChart data={chartData} margin={{ top: 8, right: 8, left: 0, bottom: useWeekly ? 8 : 4 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
           <XAxis
             dataKey="date"

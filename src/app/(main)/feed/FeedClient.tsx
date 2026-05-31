@@ -766,7 +766,7 @@ export default function FeedClient() {
   const feedWeightChartData = feedWeightLogs.slice(-30).map((w: any) => ({
     date: typeof w.date === 'string' ? w.date : String(w.date ?? ''),
     weight: Number(w.weight),
-  }));
+  })).filter(d => !isNaN(d.weight));
 
   const feedWorkoutChartArr = Object.entries(
     feedWorkouts.reduce((acc: Record<string, number>, w: any) => {
