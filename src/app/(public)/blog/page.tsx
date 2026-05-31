@@ -23,16 +23,18 @@ export const metadata: Metadata = {
 
 export default async function BlogPage() {
   // Fetch recent blogs server-side so crawlers see real content
-  let recentBlogs: { id: string; slug?: string; title: string; excerpt?: string }[] = [];
+  let recentBlogs: { id: string; slug?: string | null; title: string; excerpt?: string | null }[] = [];
   try {
-    const baseUrl = process.env.NEXTAUTH_URL || process.env.NEXT_PUBLIC_SITE_URL || 'https://sretrack.vercel.app';
-    const res = await fetch(`${baseUrl}/api/blogs?limit=20&status=published`, {
+    const siteUrl =
+      process.env.NEXT_PUBLIC_SITE_URL ||
+      process.env.NEXTAUTH_URL ||
+      'https://sretrack.vercel.app';
+    const res = await fetch(`${siteUrl}/api/blogs?limit=20&status=published`, {
       cache: 'no-store',
-      headers: { 'x-internal': '1' },
     });
     if (res.ok) {
       const data = await res.json();
-      recentBlogs = data.blogs || [];
+      recentBlogs = Array.isArray(data.blogs) ? data.blogs : [];
     }
   } catch {
     // Fail silently — BlogPageClient will load content normally
@@ -40,7 +42,13 @@ export default async function BlogPage() {
 
   return (
     <main>
-      <h1 className="sr-only">SRE Track Blog — Self-Growth Articles on Fitness, Learning, and Productivity</h1>
+      <h1 className="sr-only">
+        SRE Track Blog — Articles on Self-Growth, Fitness, Learning, and Productivity
+      </h1>
+      <p className="sr-only">
+        Read the latest articles and guides on building consistent habits, improving fitness,
+        advancing your learning, and creating great content — from the SRE Track community.
+      </p>
       {recentBlogs.length > 0 && (
         <nav aria-label="Recent blog posts" className="sr-only">
           <ul>
