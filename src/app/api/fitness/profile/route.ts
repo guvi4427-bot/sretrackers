@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { getUserId } from '@/lib/auth-helper';
+import { aiQuickCall } from '@/lib/ai-provider';
 
 const ACTIVITY_MULTIPLIERS: Record<string, number> = { sedentary: 1.2, light: 1.375, moderate: 1.55, active: 1.725, very_active: 1.9 };
 const GOAL_MULTIPLIERS: Record<string, number> = { lose: 0.8, maintain: 1.0, gain: 1.15 };
@@ -34,6 +35,80 @@ function calculateTDEE(weight: number, height: number, age: number, gender: stri
   return { tdee, calorieTarget, proteinTarget, fatTarget, carbTarget, fiberTarget };
 }
 
+async function calculateMacrosWithAI(
+  weight: number,
+  height: number,
+  age: number,
+  gender: string,
+  activityLevel: string,
+  goal: string,
+): Promise<{ tdee: number; calorieTarget: number; proteinTarget: number; fatTarget: number; carbTarget: number; fiberTarget: number }> {
+  // Algorithm fallback — always computed first so it's available instantly
+  const fallback = calculateTDEE(weight, height, age, gender, activityLevel, goal);
+
+  try {
+    const systemPrompt =
+      'You are a certified sports nutritionist. Return ONLY valid JSON — no markdown, no explanation. Keys: tdee, calorieTarget, proteinTarget, fatTarget, carbTarget, fiberTarget. All values are integers (round to nearest). Units: calories (kcal), grams. Rules: calorieTarget must be between 1200 and 5000; proteinTarget between 50 and 350; fatTarget between 20 and 150; carbTarget between 50 and 500; fiberTarget between 15 and 50; tdee must be between 1000 and 5000. If any value is out of range the entire response is invalid.';
+
+    const userPrompt =
+      `Calculate personalized daily nutrition targets for: weight=${weight}kg, height=${height}cm, age=${age}, gender=${gender}, activity=${activityLevel}, goal=${goal}. Use evidence-based formulas (Mifflin-St Jeor + activity factor + goal adjustment) but also consider optimal macro ratios for the specific goal and activity level. Respond with ONLY the JSON object.`;
+
+    const raw = await aiQuickCall(systemPrompt, userPrompt, 200);
+
+    if (!raw) {
+      console.log('[Macros] source=algorithm (AI returned null — no providers available)');
+      return fallback;
+    }
+
+    // Extract JSON from response (may be wrapped in markdown code block)
+    const jsonMatch = raw.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) {
+      console.warn('[Macros] source=algorithm (AI response had no JSON object)');
+      return fallback;
+    }
+
+    const parsed = JSON.parse(jsonMatch[0]);
+
+    // Validate all required fields are present and are finite numbers
+    const fields = ['tdee', 'calorieTarget', 'proteinTarget', 'fatTarget', 'carbTarget', 'fiberTarget'] as const;
+    for (const field of fields) {
+      if (typeof parsed[field] !== 'number' || !isFinite(parsed[field])) {
+        console.warn(`[Macros] source=algorithm (AI field ${field} missing or non-finite)`);
+        return fallback;
+      }
+    }
+
+    // Sanity-check ranges — if any value is wildly out of range, fall back entirely
+    if (
+      parsed.calorieTarget < 1200 || parsed.calorieTarget > 5000 ||
+      parsed.proteinTarget < 50 || parsed.proteinTarget > 350 ||
+      parsed.fatTarget < 20 || parsed.fatTarget > 150 ||
+      parsed.carbTarget < 50 || parsed.carbTarget > 500 ||
+      parsed.fiberTarget < 15 || parsed.fiberTarget > 50 ||
+      parsed.tdee < 1000 || parsed.tdee > 5000
+    ) {
+      console.warn(`[Macros] source=algorithm (AI values out of range: cal=${parsed.calorieTarget} pro=${parsed.proteinTarget} fat=${parsed.fatTarget} carb=${parsed.carbTarget})`);
+      return fallback;
+    }
+
+    // Round all values to integers
+    const result = {
+      tdee: Math.round(parsed.tdee),
+      calorieTarget: Math.round(parsed.calorieTarget),
+      proteinTarget: Math.round(parsed.proteinTarget),
+      fatTarget: Math.round(parsed.fatTarget),
+      carbTarget: Math.round(parsed.carbTarget),
+      fiberTarget: Math.round(parsed.fiberTarget),
+    };
+
+    console.log(`[Macros] source=ai cal=${result.calorieTarget} pro=${result.proteinTarget} fat=${result.fatTarget} carb=${result.carbTarget} fiber=${result.fiberTarget}`);
+    return result;
+  } catch (error: any) {
+    console.warn(`[Macros] source=algorithm (AI error: ${error?.message?.slice(0, 120) || 'unknown'})`);
+    return fallback;
+  }
+}
+
 export async function GET() {
   try {
     const userId = await getUserId();
@@ -57,7 +132,7 @@ export async function POST(request: Request) {
     let proteinTarget: number | null = null;
 
     if (weight && height && age && gender && activityLevel && goal) {
-      const calc = calculateTDEE(weight, height, age, gender, activityLevel, goal);
+      const calc = await calculateMacrosWithAI(weight, height, age, gender, activityLevel, goal);
       tdee = calc.tdee;
       calorieTarget = calc.calorieTarget;
       proteinTarget = calc.proteinTarget;
@@ -112,7 +187,7 @@ export async function PATCH(request: Request) {
     let proteinTarget = existing.proteinTarget;
 
     if (w && h && a && g && al && gl) {
-      const calc = calculateTDEE(w, h, a, g, al, gl);
+      const calc = await calculateMacrosWithAI(w, h, a, g, al, gl);
       tdee = calc.tdee;
       calorieTarget = calc.calorieTarget;
       proteinTarget = calc.proteinTarget;
