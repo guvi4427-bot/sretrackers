@@ -16,7 +16,7 @@ import { SelectPill } from '@/components/select-pill';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useUserStore } from '@/stores/user-store';
 import { t } from '@/lib/i18n';
-import { WeightChart, WorkoutChart, CalorieChart } from './_charts';
+import { WorkoutChart, CalorieChart } from './_charts';
 
 const TABS_LIST = ['overview', 'nutrition', 'workouts', 'progress', 'aiCoach'];
 const ACTIVITY_LEVELS = ['sedentary', 'light', 'moderate', 'active', 'very_active'];
@@ -493,12 +493,6 @@ export default function FitnessClient() {
     setChatMessages([]);
     setConversationId(null);
   }
-
-  // Weight chart data — pass full date strings so WeightChart can parse & format
-  const weightChartData = weightLogs.slice(-30).map((w: any) => ({
-    date: typeof w.date === 'string' ? w.date : String(w.date ?? ''),
-    weight: Number(w.weight),
-  })).filter(d => !isNaN(d.weight));
 
   // Workout chart data (for progress tab)
   const workoutChartData = [...workouts, ...Object.values(workoutHistory).flat()]
@@ -1321,17 +1315,6 @@ export default function FitnessClient() {
             </div>
             <p className="text-[10px] text-muted-foreground/50 mt-1">Targets auto-recalculate when weight changes</p>
           </GlassCard>
-
-          {/* Weight Progress Chart */}
-          {weightChartData.length >= 1 && (
-            <GlassCard variant="glowing" className="p-4">
-              <div className="flex items-center gap-2 mb-3">
-                <TrendingUp size={16} className="text-blue-400" />
-                <h3 className="text-sm font-medium text-muted-foreground">Weight Progress</h3>
-              </div>
-              <WeightChart data={weightChartData} />
-            </GlassCard>
-          )}
 
           {/* Workout Calories Trend Chart */}
           {workoutChartArr.length >= 1 && (

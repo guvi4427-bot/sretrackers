@@ -2,6 +2,7 @@
 
 import { motion } from 'framer-motion';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import {
   BookOpen, Dumbbell, PenTool, Clock, Rss, Bot,
   Sparkles, Zap, Trophy, ArrowRight,
@@ -79,6 +80,15 @@ const fadeUp = {
 };
 
 export default function LandingClient() {
+  const router = useRouter();
+
+  function enterAsGuest() {
+    // Set guest cookie & localStorage so middleware allows access
+    document.cookie = 'sre_guest=true; path=/; max-age=86400; SameSite=Lax';
+    localStorage.setItem('sre_guest', 'true');
+    router.push('/feed');
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#0B1120] via-[#0F172A] to-[#1A1040] text-white overflow-x-hidden">
       {/* Nav bar */}
@@ -142,15 +152,14 @@ export default function LandingClient() {
                 <ArrowRight size={18} className="ml-2" />
               </Button>
             </Link>
-            <Link href="/home?sre_guest=true">
-              <Button
+            <Button
                 variant="outline"
                 size="lg"
+                onClick={enterAsGuest}
                 className="border-white/20 text-white/80 hover:bg-white/10 hover:text-white font-semibold rounded-xl h-12 px-8 text-base"
               >
                 Explore as Guest
               </Button>
-            </Link>
           </div>
         </motion.div>
       </section>
@@ -257,15 +266,14 @@ export default function LandingClient() {
                 <ArrowRight size={18} className="ml-2" />
               </Button>
             </Link>
-            <Link href="/home?sre_guest=true">
-              <Button
+            <Button
                 variant="outline"
                 size="lg"
+                onClick={enterAsGuest}
                 className="border-white/20 text-white/70 hover:bg-white/10 hover:text-white font-semibold rounded-xl h-12 px-8 text-base"
               >
                 Explore as Guest
               </Button>
-            </Link>
           </div>
         </motion.div>
       </section>

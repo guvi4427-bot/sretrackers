@@ -23,7 +23,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { WeightChart, WorkoutChart } from '@/app/(main)/fitness/_charts';
+import { WorkoutChart } from '@/app/(main)/fitness/_charts';
 import { useGuest } from '@/components/guest-guard';
 
 // ── Shared Topic CTA Button ──
@@ -762,12 +762,6 @@ export default function FeedClient() {
     return { grouped, ungrouped };
   }, [posts]);
 
-  // Computed chart data for Live Status tab — pass full date strings so WeightChart can parse & format
-  const feedWeightChartData = feedWeightLogs.slice(-30).map((w: any) => ({
-    date: typeof w.date === 'string' ? w.date : String(w.date ?? ''),
-    weight: Number(w.weight),
-  })).filter(d => !isNaN(d.weight));
-
   const feedWorkoutChartArr = Object.entries(
     feedWorkouts.reduce((acc: Record<string, number>, w: any) => {
       const d = w.date?.slice(5) || w.date;
@@ -1262,23 +1256,6 @@ export default function FeedClient() {
                     <span className="text-[10px] text-muted-foreground/50">{feedWeightLogs.length} entries</span>
                   </div>
                 )}
-
-                {/* Weight Trend Chart */}
-                <AnimatePresence>
-                  {feedWeightChartData.length >= 2 && (
-                    <motion.div
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: -10 }}
-                      transition={{ duration: 0.3 }}
-                    >
-                      <p className="text-xs text-muted-foreground/60 mb-2 flex items-center gap-1.5">
-                        <TrendingUp size={12} className="text-blue-400" /> Weight Trend
-                      </p>
-                      <WeightChart data={feedWeightChartData} />
-                    </motion.div>
-                  )}
-                </AnimatePresence>
 
                 {/* Workout Calories Trend */}
                 <AnimatePresence>
