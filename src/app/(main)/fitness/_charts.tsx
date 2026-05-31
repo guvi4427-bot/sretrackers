@@ -89,6 +89,13 @@ export function WorkoutChart({ data }: { data: WorkoutData[] }) {
   );
 }
 
+/**
+ * WeightChart — shows daily entries for the first week, then switches to weekly trend.
+ *
+ * Props:
+ *   data: array of { date: string (ISO or YYYY-MM-DD), weight: number }
+ *   The component parses dates and decides the display mode automatically.
+ */
 export function WeightChart({ data }: { data: { date: string; weight: number }[] }) {
   if (!data || data.length === 0) {
     return (
@@ -102,11 +109,94 @@ export function WeightChart({ data }: { data: { date: string; weight: number }[]
     );
   }
 
+  // ---------- Parse dates ----------
+  const parsed = data
+    .map(d => {
+      const raw = typeof d.date === 'string' ? d.date : String(d.date ?? '');
+      const dateOnly = raw.includes('T') ? raw.split('T')[0] : raw.slice(0, 10);
+      const ms = Date.parse(dateOnly);
+      return { ...d, ts: ms, dateObj: isNaN(ms) ? null : new Date(ms) };
+    })
+    .filter(d => d.dateObj && !isNaN(Number(d.weight)));
+
+  if (parsed.length === 0) {
+    return (
+      <div className="h-64 w-full flex items-center justify-center">
+        <div className="text-center text-muted-foreground">
+          <Scale className="w-8 h-8 mx-auto mb-2 opacity-40" />
+          <p className="text-sm font-medium text-muted-foreground/60">No weight data available yet</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Sort chronologically
+  parsed.sort((a, b) => a.ts - b.ts);
+
+  // ---------- Decide: daily vs weekly ----------
+  const firstTs = parsed[0].ts;
+  const lastTs = parsed[parsed.length - 1].ts;
+  const daySpan = Math.round((lastTs - firstTs) / 86400000);
+  const useWeekly = daySpan > 7 || parsed.length > 7;
+
+  const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+  let chartData: { date: string; weight: number }[];
+
+  if (useWeekly) {
+    // ---------- Weekly aggregation ----------
+    // First 7 days: show daily entries
+    const sevenDaysMs = 7 * 86400000;
+    const dailyEntries = parsed.filter(d => d.ts - firstTs <= sevenDaysMs);
+    const weeklyEntries = parsed.filter(d => d.ts - firstTs > sevenDaysMs);
+
+    // Group weekly entries into 7-day buckets starting from firstTs + 7d
+    const weekBuckets = new Map<number, { sum: number; count: number; startDate: Date }>();
+    for (const entry of weeklyEntries) {
+      const weekIndex = Math.floor((entry.ts - firstTs - sevenDaysMs) / 86400000 / 7);
+      const weekStartTs = firstTs + sevenDaysMs + weekIndex * 7 * 86400000;
+      if (!weekBuckets.has(weekStartTs)) {
+        weekBuckets.set(weekStartTs, { sum: 0, count: 0, startDate: new Date(weekStartTs) });
+      }
+      const bucket = weekBuckets.get(weekStartTs)!;
+      bucket.sum += Number(entry.weight);
+      bucket.count += 1;
+    }
+
+    // Build daily portion with formatted labels
+    const dailyData = dailyEntries.map(d => ({
+      date: `${monthNames[d.dateObj!.getMonth()]} ${d.dateObj!.getDate()}`,
+      weight: Number(d.weight),
+    }));
+
+    // Build weekly portion with "W2 (Jan 12)" style labels
+    const weeklyData = Array.from(weekBuckets.entries())
+      .sort(([a], [b]) => a - b)
+      .map(([weekStartTs, bucket], idx) => {
+        const sd = bucket.startDate;
+        const weekNum = idx + 2; // Week 1 is the daily portion
+        return {
+          date: `W${weekNum} (${monthNames[sd.getMonth()]} ${sd.getDate()})`,
+          weight: Math.round((bucket.sum / bucket.count) * 10) / 10,
+        };
+      });
+
+    chartData = [...dailyData, ...weeklyData];
+  } else {
+    // ---------- Daily only (≤7 days) ----------
+    chartData = parsed.map(d => ({
+      date: `${monthNames[d.dateObj!.getMonth()]} ${d.dateObj!.getDate()}`,
+      weight: Number(d.weight),
+    }));
+  }
+
   // Ensure at least 2 points so recharts renders a visible line
-  const chartData = data.length === 1 ? [data[0], { ...data[0] }] : data;
+  if (chartData.length === 1) {
+    chartData = [chartData[0], { ...chartData[0] }];
+  }
 
   // Fixed Y domain with padding — prevents collapse when all values are identical
-  const weights = chartData.map(d => Number(d.weight)).filter(v => !isNaN(v));
+  const weights = chartData.map(d => d.weight).filter(v => !isNaN(v));
   const minW = Math.min(...weights);
   const maxW = Math.max(...weights);
   const pad = Math.max(2, (maxW - minW) * 0.25);
@@ -120,10 +210,13 @@ export function WeightChart({ data }: { data: { date: string; weight: number }[]
           <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
           <XAxis
             dataKey="date"
-            tick={{ fontSize: 10, fill: 'rgba(255,255,255,0.4)' }}
+            tick={{ fontSize: 9, fill: 'rgba(255,255,255,0.4)' }}
             tickLine={false}
             axisLine={{ stroke: 'rgba(255,255,255,0.08)' }}
-            interval="preserveStartEnd"
+            interval={useWeekly ? 0 : 'preserveStartEnd'}
+            angle={useWeekly ? -25 : 0}
+            textAnchor={useWeekly ? 'end' : 'middle'}
+            height={useWeekly ? 50 : 30}
           />
           <YAxis
             domain={[yMin, yMax]}
@@ -140,7 +233,7 @@ export function WeightChart({ data }: { data: { date: string; weight: number }[]
             name="Weight (kg)"
             stroke="#3B82F6"
             strokeWidth={2.5}
-            dot={{ r: 4, fill: '#3B82F6', stroke: '#1d4ed8', strokeWidth: 2 }}
+            dot={{ r: 3, fill: '#3B82F6', stroke: '#1d4ed8', strokeWidth: 2 }}
             activeDot={{ r: 6, fill: '#60a5fa', stroke: '#3B82F6', strokeWidth: 2 }}
             connectNulls
           />

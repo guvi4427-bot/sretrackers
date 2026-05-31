@@ -762,10 +762,10 @@ export default function FeedClient() {
     return { grouped, ungrouped };
   }, [posts]);
 
-  // Computed chart data for Live Status tab
+  // Computed chart data for Live Status tab — pass full date strings so WeightChart can parse & format
   const feedWeightChartData = feedWeightLogs.slice(-30).map((w: any) => ({
-    date: w.date?.slice(5) || w.date,
-    weight: w.weight,
+    date: typeof w.date === 'string' ? w.date : String(w.date ?? ''),
+    weight: Number(w.weight),
   }));
 
   const feedWorkoutChartArr = Object.entries(

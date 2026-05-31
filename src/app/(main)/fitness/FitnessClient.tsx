@@ -494,16 +494,11 @@ export default function FitnessClient() {
     setConversationId(null);
   }
 
-  // Weight chart data
-  const weightChartData = weightLogs.slice(-30).map((w: any) => {
-    const raw = typeof w.date === 'string' ? w.date : String(w.date ?? '');
-    const dateOnly = raw.includes('T') ? raw.split('T')[0] : raw;
-    const parts = dateOnly.split('-');
-    return {
-      date: parts.length === 3 ? `${parts[1]}/${parts[2]}` : raw,
-      weight: Number(w.weight),
-    };
-  }).filter(d => !isNaN(d.weight));
+  // Weight chart data — pass full date strings so WeightChart can parse & format
+  const weightChartData = weightLogs.slice(-30).map((w: any) => ({
+    date: typeof w.date === 'string' ? w.date : String(w.date ?? ''),
+    weight: Number(w.weight),
+  })).filter(d => !isNaN(d.weight));
 
   // Workout chart data (for progress tab)
   const workoutChartData = [...workouts, ...Object.values(workoutHistory).flat()]
