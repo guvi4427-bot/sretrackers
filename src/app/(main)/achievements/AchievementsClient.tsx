@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
 import { Award, Lock, Unlock, Sparkles, Trophy, BookOpen, Dumbbell, Clock, PenTool, ChevronRight, X, Star, Flame, Loader2 } from 'lucide-react';
@@ -32,6 +33,7 @@ interface CriteriaObj {
 }
 
 const CATEGORY_CONFIG: Record<string, { icon: any; color: string; bg: string; label: string }> = {
+  unlocked: { icon: Unlock, color: 'text-amber-400', bg: 'bg-amber-600/20', label: 'Unlocked' },
   learning: { icon: BookOpen, color: 'text-blue-400', bg: 'bg-blue-600/20', label: 'Learning' },
   fitness: { icon: Dumbbell, color: 'text-green-400', bg: 'bg-green-600/20', label: 'Fitness' },
   time: { icon: Clock, color: 'text-amber-400', bg: 'bg-amber-600/20', label: 'Time' },
@@ -166,9 +168,10 @@ function CelebrationOverlay({ achievement, onClose }: { achievement: Achievement
 }
 
 function AchievementsContent() {
+  const searchParams = useSearchParams();
   const [achievements, setAchievements] = useState<Achievement[]>([]);
   const [loading, setLoading] = useState(true);
-  const [categoryFilter, setCategoryFilter] = useState('all');
+  const [categoryFilter, setCategoryFilter] = useState(searchParams.get('filter') || 'all');
   const [claiming, setClaiming] = useState<string | null>(null);
   const [celebration, setCelebration] = useState<Achievement | null>(null);
   const [detailAchievement, setDetailAchievement] = useState<Achievement | null>(null);
@@ -213,7 +216,9 @@ function AchievementsContent() {
 
   const filtered = categoryFilter === 'all'
     ? achievements
-    : achievements.filter((a) => a.category === categoryFilter);
+    : categoryFilter === 'unlocked'
+      ? achievements.filter((a) => a.unlocked)
+      : achievements.filter((a) => a.category === categoryFilter);
 
   const unlocked = achievements.filter((a) => a.unlocked).length;
   const eligibleCount = achievements.filter((a) => a.eligible && !a.unlocked).length;

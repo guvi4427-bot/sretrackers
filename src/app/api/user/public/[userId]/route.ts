@@ -56,7 +56,6 @@ export async function GET(
         achievements: {
           include: { achievement: true },
           orderBy: { unlockedAt: 'desc' },
-          take: 10,
         },
         learningTopics: {
           select: { id: true, name: true, phase: true },

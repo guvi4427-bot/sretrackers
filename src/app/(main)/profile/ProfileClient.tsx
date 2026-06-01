@@ -466,13 +466,13 @@ export default function ProfileClient() {
             <Trophy size={16} className="text-amber-400" />
             <h3 className="text-sm font-medium text-muted-foreground">Achievements ({achievements.length})</h3>
           </div>
-          <Button onClick={() => router.push('/achievements')} size="sm" variant="ghost" className="text-blue-400 hover:text-blue-300 text-xs">
+          <Button onClick={() => router.push('/achievements?filter=unlocked')} size="sm" variant="ghost" className="text-blue-400 hover:text-blue-300 text-xs">
             View All <ArrowRight size={12} className="ml-1" />
           </Button>
         </div>
         {achievements.length > 0 ? (
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-            {achievements.slice(0, 9).map((a: any) => (
+            {achievements.map((a: any) => (
               <div key={a.id} className="p-3 rounded-xl glass-card-sm flex items-center gap-2 overflow-hidden">
                 <span className="text-xl shrink-0">{a.iconEmoji || '🏆'}</span>
                 <div className="min-w-0">
