@@ -461,14 +461,9 @@ export default function ProfileClient() {
 
       {/* Achievements - always visible for unlocked ones */}
       <GlassCard className="p-5">
-        <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-2">
-            <Trophy size={16} className="text-amber-400" />
-            <h3 className="text-sm font-medium text-muted-foreground">Achievements ({achievements.length})</h3>
-          </div>
-          <Button onClick={() => router.push('/achievements?filter=unlocked')} size="sm" variant="ghost" className="text-blue-400 hover:text-blue-300 text-xs">
-            View All <ArrowRight size={12} className="ml-1" />
-          </Button>
+        <div className="flex items-center gap-2 mb-3">
+          <Trophy size={16} className="text-amber-400" />
+          <h3 className="text-sm font-medium text-muted-foreground">Achievements ({achievements.length})</h3>
         </div>
         {achievements.length > 0 ? (
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
