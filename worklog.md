@@ -44,3 +44,30 @@ Stage Summary:
 - Feed page: Bookmarks tab removed (Feed, Live, My Posts tabs remain)
 - Bookmarks page: Fixed auth detection by using same pattern as rest of app (useUserStore + useGuest instead of useSession)
 - Deployed: All 3 deployments show READY state
+
+---
+Task ID: 2
+Agent: Main Agent
+Task: Fix bookmarked posts not showing in bookmarks page posts tab
+
+Work Log:
+- Investigated root cause: the GET /api/posts?filter=bookmarked had structural issues
+  - Guest flow (no session) doesn't process filter=bookmarked at all
+  - If session not detected, API returns all posts (not bookmarked ones) or errors silently
+  - The BookmarksClient didn't know if the API failed (no error handling for non-ok responses)
+- Created dedicated API endpoints:
+  - /api/posts/bookmarked/route.ts - Returns 401 if no session, queries PostBookmark directly
+  - /api/blogs/bookmarked/route.ts - Returns 401 if no session, queries BlogBookmark via Prisma relation
+- Updated BookmarksClient.tsx:
+  - Uses /api/posts/bookmarked instead of /api/posts?filter=bookmarked
+  - Uses /api/blogs/bookmarked instead of /api/blogs?bookmarked=true
+  - Added credentials: 'include' to all fetch calls
+  - Added useRef to prevent re-fetching on every profile change (was re-running every 5s)
+  - Added error logging for non-ok API responses
+- Build succeeded, deployed to Vercel production (READY)
+
+Stage Summary:
+- Root cause: the filter=bookmarked path in /api/posts had a guest flow that bypassed bookmark filtering
+- Fix: created dedicated endpoints that explicitly require authentication (return 401 if no session)
+- Both endpoints query the database directly for bookmarked content
+- BookmarksClient now uses dedicated endpoints with proper error handling
