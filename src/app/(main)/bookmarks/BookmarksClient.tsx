@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { useSession } from 'next-auth/react';
 import { toast } from 'sonner';
 import {
   Heart, MessageCircle, Bookmark, Loader2, FileText, Rss, Clock, Newspaper
@@ -11,6 +10,8 @@ import { GlassCard } from '@/components/glass-card';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { useUserStore } from '@/stores/user-store';
+import { useGuest } from '@/components/guest-guard';
 
 interface BlogItem {
   id: string;
@@ -65,7 +66,8 @@ interface PostItem {
 
 export default function BookmarksClient() {
   const router = useRouter();
-  const { data: session, status: sessionStatus } = useSession();
+  const { profile, loading: profileLoading } = useUserStore();
+  const { isGuest, showLoginPrompt } = useGuest();
   const [tab, setTab] = useState('blogs');
   const [blogs, setBlogs] = useState<BlogItem[]>([]);
   const [posts, setPosts] = useState<PostItem[]>([]);
@@ -75,7 +77,7 @@ export default function BookmarksClient() {
   const fetchBlogs = useCallback(async () => {
     setLoadingBlogs(true);
     try {
-      const res = await fetch('/api/blogs?bookmarked=true&limit=50');
+      const res = await fetch(`/api/blogs?bookmarked=true&limit=50&_t=${Date.now()}`);
       if (res.ok) {
         const data = await res.json();
         setBlogs(data.blogs || []);
@@ -90,7 +92,7 @@ export default function BookmarksClient() {
   const fetchPosts = useCallback(async () => {
     setLoadingPosts(true);
     try {
-      const res = await fetch('/api/posts?filter=bookmarked&limit=50');
+      const res = await fetch(`/api/posts?filter=bookmarked&limit=50&_t=${Date.now()}`);
       if (res.ok) {
         const data = await res.json();
         setPosts(data.posts || []);
@@ -103,13 +105,18 @@ export default function BookmarksClient() {
   }, []);
 
   useEffect(() => {
-    if (sessionStatus === 'authenticated') {
+    if (isGuest) {
+      showLoginPrompt('view bookmarks');
+      router.push('/feed');
+      return;
+    }
+    if (!profileLoading && profile) {
       fetchBlogs();
       fetchPosts();
-    } else if (sessionStatus === 'unauthenticated') {
+    } else if (!profileLoading && !profile) {
       router.push('/login');
     }
-  }, [sessionStatus, fetchBlogs, fetchPosts, router]);
+  }, [profile, profileLoading, isGuest, fetchBlogs, fetchPosts, router, showLoginPrompt]);
 
   const toggleBlogBookmark = async (blog: BlogItem) => {
     const wasBookmarked = blog.isBookmarked;
@@ -158,7 +165,7 @@ export default function BookmarksClient() {
     }
   };
 
-  if (sessionStatus === 'loading' || (loadingBlogs && loadingPosts)) {
+  if (profileLoading || (loadingBlogs && loadingPosts)) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
         <Loader2 className="w-8 h-8 text-blue-400 animate-spin" />

@@ -1150,7 +1150,6 @@ export default function FeedClient() {
           <TabsTrigger value="feed" className="text-muted-foreground data-[state=active]:text-blue-400 flex-1"><Rss size={14} className="mr-1" />Feed</TabsTrigger>
           <TabsTrigger value="live" className="text-muted-foreground data-[state=active]:text-green-400 flex-1"><Activity size={14} className="mr-1" />Live</TabsTrigger>
           {!isGuest && <TabsTrigger value="myposts" className="text-muted-foreground data-[state=active]:text-blue-400 flex-1"><FileText size={14} className="mr-1" />{t('feed.myPosts')}</TabsTrigger>}
-          {!isGuest && <TabsTrigger value="bookmarks" className="text-muted-foreground data-[state=active]:text-amber-400 flex-1"><Bookmark size={14} className="mr-1" />{t('feed.bookmarks')}</TabsTrigger>}
         </TabsList>
 
         <TabsContent value="feed" className="mt-4 space-y-4">
@@ -1433,14 +1432,6 @@ export default function FeedClient() {
           )}
         </TabsContent>
 
-        {/* Bookmarks Tab */}
-        <TabsContent value="bookmarks" className="mt-4 space-y-4">
-          {posts.filter(p => p.isBookmarked).length === 0 ? (
-            <GlassCard className="p-8 text-center"><p className="text-muted-foreground">{t('feed.noBookmarks')}</p></GlassCard>
-          ) : (
-            posts.filter(p => p.isBookmarked).map((p: any) => <PostCard key={p.id} post={p} />)
-          )}
-        </TabsContent>
       </Tabs>
 
       {/* Ad Banner — bottom of page, above footer */}
