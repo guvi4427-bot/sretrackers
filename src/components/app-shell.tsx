@@ -333,6 +333,7 @@ function AppShellInner({ children }: { children: React.ReactNode }) {
           <span>·</span>
           <a href="/community-guidelines" className="hover:text-muted-foreground transition-colors">Community Guidelines</a>
         </div>
+        <p className="mt-2 text-[10px] text-muted-foreground/30 text-center">© {new Date().getFullYear()} Provolution Technologies Pvt Ltd. All Rights Reserved.</p>
       </main>
 
       {/* Bottom Navigation Bar */}
