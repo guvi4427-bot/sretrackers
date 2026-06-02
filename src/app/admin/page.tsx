@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
-import { Users, UserCheck, UserX, ShieldCheck, AlertTriangle, MessageSquare, TrendingUp, BadgeCheck, Monitor, Flag, Clock, CheckCircle, XCircle, Loader2 } from 'lucide-react';
+import { Users, UserCheck, UserX, ShieldCheck, AlertTriangle, MessageSquare, TrendingUp, BadgeCheck, Monitor, Flag, Clock, CheckCircle, XCircle, Loader2, Newspaper } from 'lucide-react';
 import { GlassCard } from '@/components/glass-card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -84,9 +84,10 @@ export default function AdminDashboard() {
         ))}
       </div>
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
         <Button onClick={() => router.push('/admin/users')} variant="outline" className="h-20 flex flex-col gap-1"><Users size={20} />Users</Button>
         <Button onClick={() => router.push('/admin/reports')} variant="outline" className="h-20 flex flex-col gap-1"><AlertTriangle size={20} />Reports</Button>
+        <Button onClick={() => router.push('/admin/blogs')} variant="outline" className="h-20 flex flex-col gap-1"><Newspaper size={20} />Blogs</Button>
         <Button onClick={() => router.push('/admin/feedback')} variant="outline" className="h-20 flex flex-col gap-1"><MessageSquare size={20} />Feedback</Button>
         <Button onClick={() => router.push('/admin/admins')} variant="outline" className="h-20 flex flex-col gap-1"><ShieldCheck size={20} />Admins</Button>
       </div>

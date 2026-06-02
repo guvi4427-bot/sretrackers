@@ -23,6 +23,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { useGuest } from '@/components/guest-guard';
+import ShareToChatDialog, { ShareData } from '@/components/share-to-chat-dialog';
 import { SITE_NAME, SITE_URL } from '@/lib/site-config';
 
 export default function BlogDetailClient() {
@@ -37,6 +38,7 @@ export default function BlogDetailClient() {
   const [commentText, setCommentText] = useState('');
   const [submittingComment, setSubmittingComment] = useState(false);
   const [shareDialogOpen, setShareDialogOpen] = useState(false);
+  const [shareToChatOpen, setShareToChatOpen] = useState(false);
   const [copied, setCopied] = useState(false);
 
   const fetchBlog = useCallback(async () => {
@@ -284,7 +286,14 @@ export default function BlogDetailClient() {
             <MessageCircle size={16} />
             <span>{blog.stats.comments}</span>
           </button>
-          <button onClick={() => { if (isGuest) { showLoginPrompt('share this blog'); return; } setShareDialogOpen(true); }} className="flex items-center gap-1.5 text-xs text-muted-foreground/70 hover:text-blue-400 transition-colors">
+          <button onClick={() => {
+            if (isGuest) { showLoginPrompt('share this blog'); return; }
+            if (typeof navigator !== 'undefined' && navigator.share) {
+              navigator.share({ title: blog.title, text: blog.excerpt || blog.title, url: shareUrl }).catch(() => {});
+            } else {
+              setShareDialogOpen(true);
+            }
+          }} className="flex items-center gap-1.5 text-xs text-muted-foreground/70 hover:text-blue-400 transition-colors">
             <Share2 size={16} />
           </button>
           <button onClick={toggleBookmark} className={`flex items-center gap-1.5 text-xs transition-colors ${blog.isBookmarked ? 'text-amber-400' : 'text-muted-foreground/70 hover:text-amber-400'}`}>
@@ -386,7 +395,7 @@ export default function BlogDetailClient() {
             <Button variant="outline" onClick={() => { window.open(shareUrl, '_blank'); setShareDialogOpen(false); }} className="w-full">
               <ExternalLink size={16} className="mr-2" /> Open in New Tab
             </Button>
-            {/* Social share buttons — full-width vertical stack */}
+            {/* Social share buttons */}
             <div className="flex flex-col gap-1.5 w-full min-w-0">
               <button type="button" className="w-full flex items-center justify-center h-8 rounded-md border border-border bg-background text-xs text-foreground hover:bg-accent transition-colors" onClick={() => window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(blog.title + ' ' + shareUrl)}`, '_blank')}>
                 WhatsApp
@@ -401,9 +410,26 @@ export default function BlogDetailClient() {
                 Reddit
               </button>
             </div>
+            {/* Share to Chat */}
+            <Button onClick={() => { setShareDialogOpen(false); setShareToChatOpen(true); }} className="w-full">
+              <MessageCircle size={16} className="mr-2" /> Share to Chat
+            </Button>
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Share to Chat Dialog */}
+      <ShareToChatDialog
+        isOpen={shareToChatOpen}
+        onClose={() => setShareToChatOpen(false)}
+        shareData={{
+          type: 'post',
+          id: blog.id,
+          preview: blog.title,
+          userName: blog.user.name,
+          username: blog.user.username,
+        } as ShareData}
+      />
     </div>
   );
 }

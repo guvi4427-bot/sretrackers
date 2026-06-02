@@ -81,9 +81,9 @@ export interface AchievementDef {
   criteria: AchievementCriteria;
 }
 
-// 100 Achievements across 4 categories: learning (25), fitness (25), time (25), content (25)
-// Plus onboarding (1) + streak (4) + level (4) + xp (4) + social (3) = 16 general = 116 total
-// We keep it at exactly 100: learning(25) + fitness(25) + time(25) + content(25) = 100
+// ~90 Achievements across 4 categories: learning, fitness, time, content
+// Duplicate streak/level/xp achievements have been consolidated (kept one set per type)
+// Plus content live status achievements
 export const ACHIEVEMENT_DEFS: AchievementDef[] = [
   // ═══════════════════════════════════════════════
   // LEARNING ACHIEVEMENTS (25)
@@ -135,13 +135,6 @@ export const ACHIEVEMENT_DEFS: AchievementDef[] = [
   { key: "fit_workout_hour", name: "Sweat Hour", description: "Log 60+ minutes of workouts", iconEmoji: "💦", xpReward: 25, tier: "bronze", category: "fitness", criteria: { type: "fitness_workout_duration", value: 60 } },
   { key: "fit_workout_five_hours", name: "Endurance", description: "Log 5+ hours of workouts", iconEmoji: "🫀", xpReward: 50, tier: "silver", category: "fitness", criteria: { type: "fitness_workout_duration", value: 300 } },
   { key: "fit_workout_day", name: "Full Day Grind", description: "Log 24+ hours of workouts", iconEmoji: "💪", xpReward: 150, tier: "gold", category: "fitness", criteria: { type: "fitness_workout_duration", value: 1440 } },
-  { key: "fit_streak_3", name: "3-Day Fitness", description: "Maintain 3-day streak", iconEmoji: "🔥", xpReward: 25, tier: "bronze", category: "fitness", criteria: { type: "streak", value: 3 } },
-  { key: "fit_streak_7", name: "Week Warrior", description: "Maintain 7-day streak", iconEmoji: "🔥", xpReward: 50, tier: "silver", category: "fitness", criteria: { type: "streak", value: 7 } },
-  { key: "fit_streak_30", name: "Monthly Machine", description: "Maintain 30-day streak", iconEmoji: "🔥", xpReward: 200, tier: "gold", category: "fitness", criteria: { type: "streak", value: 30 } },
-  { key: "fit_level_5", name: "Rising Athlete", description: "Reach Level 5", iconEmoji: "⭐", xpReward: 50, tier: "silver", category: "fitness", criteria: { type: "level", value: 5 } },
-  { key: "fit_level_10", name: "Fitness Champion", description: "Reach Level 10", iconEmoji: "🏆", xpReward: 100, tier: "gold", category: "fitness", criteria: { type: "level", value: 10 } },
-  { key: "fit_xp_1000", name: "XP Centurion", description: "Earn 1000 total XP", iconEmoji: "🌟", xpReward: 50, tier: "silver", category: "fitness", criteria: { type: "xp", value: 1000 } },
-  { key: "fit_xp_10000", name: "XP Titan", description: "Earn 10000 total XP", iconEmoji: "💫", xpReward: 200, tier: "platinum", category: "fitness", criteria: { type: "xp", value: 10000 } },
 
   // Weight training progression achievements
   { key: "fit_wt_first_session", name: "Iron Initiate", description: "Complete your first weight training session", iconEmoji: "🏋️", xpReward: 20, tier: "bronze", category: "fitness", criteria: { type: "weight_training_sessions", value: 1 } },
@@ -173,9 +166,6 @@ export const ACHIEVEMENT_DEFS: AchievementDef[] = [
   { key: "time_focus_five_hours", name: "Marathon Mind", description: "Complete 5+ hours total focus time", iconEmoji: "🏃‍♂️", xpReward: 50, tier: "silver", category: "time", criteria: { type: "time_focus_duration", value: 300 } },
   { key: "time_focus_day", name: "Deep Flow", description: "Complete 24+ hours total focus time", iconEmoji: "🌊", xpReward: 150, tier: "gold", category: "time", criteria: { type: "time_focus_duration", value: 1440 } },
   { key: "time_focus_week", name: "Flow State", description: "Complete 168+ hours total focus time", iconEmoji: "🌀", xpReward: 300, tier: "platinum", category: "time", criteria: { type: "time_focus_duration", value: 10080 } },
-  { key: "time_streak_3", name: "3-Day Focus", description: "Maintain 3-day streak", iconEmoji: "🔥", xpReward: 25, tier: "bronze", category: "time", criteria: { type: "streak", value: 3 } },
-  { key: "time_streak_7", name: "Week Focused", description: "Maintain 7-day streak", iconEmoji: "🔥", xpReward: 50, tier: "silver", category: "time", criteria: { type: "streak", value: 7 } },
-  { key: "time_streak_30", name: "Monthly Focus", description: "Maintain 30-day streak", iconEmoji: "🔥", xpReward: 200, tier: "gold", category: "time", criteria: { type: "streak", value: 30 } },
   { key: "time_level_5", name: "Time Manager", description: "Reach Level 5", iconEmoji: "⭐", xpReward: 50, tier: "silver", category: "time", criteria: { type: "level", value: 5 } },
   { key: "time_level_10", name: "Time Master", description: "Reach Level 10", iconEmoji: "🏆", xpReward: 100, tier: "gold", category: "time", criteria: { type: "level", value: 10 } },
   { key: "time_level_20", name: "Time Lord", description: "Reach Level 20", iconEmoji: "👑", xpReward: 200, tier: "platinum", category: "time", criteria: { type: "level", value: 20 } },
@@ -204,13 +194,6 @@ export const ACHIEVEMENT_DEFS: AchievementDef[] = [
   { key: "content_five_blogs", name: "Blogger", description: "Write 5 blog posts", iconEmoji: "📰", xpReward: 30, tier: "bronze", category: "content", criteria: { type: "content_blogs", value: 5 } },
   { key: "content_ten_blogs", name: "Blog Master", description: "Write 10 blog posts", iconEmoji: "📑", xpReward: 50, tier: "silver", category: "content", criteria: { type: "content_blogs", value: 10 } },
   { key: "content_twenty_blogs", name: "Prolific Writer", description: "Write 20 blog posts", iconEmoji: "✒️", xpReward: 100, tier: "gold", category: "content", criteria: { type: "content_blogs", value: 20 } },
-  { key: "content_streak_3", name: "3-Day Creator", description: "Maintain 3-day streak", iconEmoji: "🔥", xpReward: 25, tier: "bronze", category: "content", criteria: { type: "streak", value: 3 } },
-  { key: "content_streak_7", name: "Content Week", description: "Maintain 7-day streak", iconEmoji: "🔥", xpReward: 50, tier: "silver", category: "content", criteria: { type: "streak", value: 7 } },
-  { key: "content_streak_30", name: "Content Machine", description: "Maintain 30-day streak", iconEmoji: "🔥", xpReward: 200, tier: "gold", category: "content", criteria: { type: "streak", value: 30 } },
-  { key: "content_level_5", name: "Rising Creator", description: "Reach Level 5", iconEmoji: "⭐", xpReward: 50, tier: "silver", category: "content", criteria: { type: "level", value: 5 } },
-  { key: "content_level_10", name: "Creative Force", description: "Reach Level 10", iconEmoji: "🏆", xpReward: 100, tier: "gold", category: "content", criteria: { type: "level", value: 10 } },
-  { key: "content_xp_1000", name: "Creative XP", description: "Earn 1000 total XP", iconEmoji: "💫", xpReward: 50, tier: "silver", category: "content", criteria: { type: "xp", value: 1000 } },
-  { key: "content_xp_10000", name: "Creative Legend", description: "Earn 10000 total XP", iconEmoji: "🌟", xpReward: 200, tier: "platinum", category: "content", criteria: { type: "xp", value: 10000 } },
 
   // ═══════════════════════════════════════════════
   // CONTENT LIVE STATUS ACHIEVEMENTS (7)

@@ -19,6 +19,9 @@ export async function GET(req: NextRequest) {
     const username = searchParams.get('username');
     const skip = (page - 1) * limit;
 
+    const mine = searchParams.get('mine') === 'true';
+    const bookmarked = searchParams.get('bookmarked') === 'true';
+
     const where: any = { status: 'published' };
     if (tag) {
       // Filter by tag (tags is JSON array, use contains)
@@ -33,6 +36,17 @@ export async function GET(req: NextRequest) {
     }
     if (username) {
       where.user = { username };
+    }
+
+    // "mine" mode: show current user's blogs (all statuses including drafts)
+    if (mine && myUserId) {
+      delete where.status;
+      where.userId = myUserId;
+    }
+
+    // "bookmarked" mode: show blogs bookmarked by current user
+    if (bookmarked && myUserId) {
+      where.bookmarks = { some: { userId: myUserId } };
     }
 
     const [blogs, total] = await Promise.all([

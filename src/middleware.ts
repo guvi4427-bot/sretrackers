@@ -12,6 +12,9 @@ const PUBLIC_PATHS = [
   "/logo.svg", "/logo.png", "/ads.txt", "/app-ads.txt", "/robots.txt", "/sitemap.xml",
   "/llms.txt", "/og-image.png",
   "/google990ef60d3a371354.html",
+  // SEO public pages — fully crawlable without auth
+  "/features", "/showcase", "/faq", "/help", "/docs",
+  "/roadmap", "/mission", "/vision", "/changelog",
 ];
 
 // Known search/AI crawler user-agent substrings (lowercase match)
@@ -36,6 +39,16 @@ const GUEST_ALLOWED_PATHS = [
   "/discover",
   "/shared-topic",
   "/blog",
+  // Public SEO pages also accessible to guests
+  "/features",
+  "/showcase",
+  "/faq",
+  "/help",
+  "/docs",
+  "/roadmap",
+  "/mission",
+  "/vision",
+  "/changelog",
 ];
 
 // API routes that guests can access (read-only public data)

@@ -10,7 +10,7 @@ import {
   BarChart3, MessageCircle, User, Settings, Menu, Search, Bell,
   Shield, LogOut, Zap, Compass, X, Send, Bot, Sparkles,
   Sun, Moon, MessageSquare, Bookmark, Users, UserCheck,
-  Plus, Trash2, ArrowLeft, Loader2, Newspaper
+  Plus, Trash2, ArrowLeft, Loader2, Newspaper, FileText
 } from 'lucide-react';
 import { signOut } from 'next-auth/react';
 import { AIMessage } from '@/components/ai-message';
@@ -52,7 +52,8 @@ const MORE_ITEMS = [
   { nameKey: 'nav.profile', href: '/profile', icon: User },
   { nameKey: 'nav.settings', href: '/settings', icon: Settings },
   { nameKey: 'feedback.title', href: '/feedback', icon: MessageSquare },
-  { nameKey: 'nav.bookmarks', href: '/feed?tab=bookmarks', icon: Bookmark },
+  { nameKey: 'nav.bookmarks', href: '/bookmarks', icon: Bookmark },
+  { nameKey: 'nav.myBlogs', href: '/my-blogs', icon: FileText },
   { nameKey: 'nav.blog', href: '/blog', icon: Newspaper },
 ];
 

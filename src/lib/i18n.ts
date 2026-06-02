@@ -90,6 +90,7 @@ const translations: Translations = {
     "nav.signOut": "Sign Out",
     "nav.aiHub": "AI Hub",
     "nav.blog": "Blog",
+    "nav.myBlogs": "My Blogs",
     
     // Phases
     "phase.start": "Start",
@@ -527,6 +528,7 @@ const translations: Translations = {
     "nav.signOut": "வெளியேறு",
     "nav.aiHub": "AI மையம்",
     "nav.blog": "வலைப்பதிவு",
+    "nav.myBlogs": "என் வலைப்பதிவுகள்",
     
     // Phases
     "phase.start": "தொடங்கு",
