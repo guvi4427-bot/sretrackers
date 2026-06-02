@@ -1,10 +1,10 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import {
-  Heart, MessageCircle, Bookmark, Loader2, FileText, Rss, Clock, Newspaper
+  Heart, MessageCircle, Bookmark, Loader2, Rss, Clock, Newspaper
 } from 'lucide-react';
 import { GlassCard } from '@/components/glass-card';
 import { Button } from '@/components/ui/button';
@@ -73,16 +73,20 @@ export default function BookmarksClient() {
   const [posts, setPosts] = useState<PostItem[]>([]);
   const [loadingBlogs, setLoadingBlogs] = useState(true);
   const [loadingPosts, setLoadingPosts] = useState(true);
+  const initialFetchDone = useRef(false);
 
   const fetchBlogs = useCallback(async () => {
     setLoadingBlogs(true);
     try {
-      const res = await fetch(`/api/blogs?bookmarked=true&limit=50&_t=${Date.now()}`);
+      const res = await fetch('/api/blogs/bookmarked', { credentials: 'include' });
       if (res.ok) {
         const data = await res.json();
         setBlogs(data.blogs || []);
+      } else {
+        console.error('Bookmarks blogs API error:', res.status);
       }
-    } catch {
+    } catch (e) {
+      console.error('Bookmarks blogs fetch error:', e);
       toast.error('Failed to load bookmarked blogs');
     } finally {
       setLoadingBlogs(false);
@@ -92,12 +96,15 @@ export default function BookmarksClient() {
   const fetchPosts = useCallback(async () => {
     setLoadingPosts(true);
     try {
-      const res = await fetch(`/api/posts?filter=bookmarked&limit=50&_t=${Date.now()}`);
+      const res = await fetch('/api/posts/bookmarked', { credentials: 'include' });
       if (res.ok) {
         const data = await res.json();
         setPosts(data.posts || []);
+      } else {
+        console.error('Bookmarks posts API error:', res.status);
       }
-    } catch {
+    } catch (e) {
+      console.error('Bookmarks posts fetch error:', e);
       toast.error('Failed to load bookmarked posts');
     } finally {
       setLoadingPosts(false);
@@ -110,7 +117,9 @@ export default function BookmarksClient() {
       router.push('/feed');
       return;
     }
-    if (!profileLoading && profile) {
+    // Only fetch once when profile becomes available
+    if (!profileLoading && profile && !initialFetchDone.current) {
+      initialFetchDone.current = true;
       fetchBlogs();
       fetchPosts();
     } else if (!profileLoading && !profile) {
@@ -127,9 +136,8 @@ export default function BookmarksClient() {
     } : b));
     try {
       const method = wasBookmarked ? 'DELETE' : 'POST';
-      await fetch(`/api/blogs/${blog.id}/bookmark`, { method });
+      await fetch(`/api/blogs/${blog.id}/bookmark`, { method, credentials: 'include' });
       if (wasBookmarked) {
-        // Remove from list after unbookmarking
         setBlogs(prev => prev.filter(b => b.id !== blog.id));
         toast.success('Bookmark removed');
       }
@@ -151,7 +159,7 @@ export default function BookmarksClient() {
     } : p));
     try {
       const method = wasBookmarked ? 'DELETE' : 'POST';
-      await fetch(`/api/posts/${post.id}/bookmark`, { method });
+      await fetch(`/api/posts/${post.id}/bookmark`, { method, credentials: 'include' });
       if (wasBookmarked) {
         setPosts(prev => prev.filter(p => p.id !== post.id));
         toast.success('Bookmark removed');
