@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import { SITE_NAME, SITE_URL, CANONICAL_URL } from "@/lib/site-config";
 import { BlogPageClient } from "./client";
 
@@ -61,7 +62,9 @@ export default async function BlogPage() {
           </ul>
         </nav>
       )}
-      <BlogPageClient />
+      <Suspense fallback={<div className="min-h-screen bg-[#0F172A]" />}>
+        <BlogPageClient />
+      </Suspense>
     </main>
   );
 }
