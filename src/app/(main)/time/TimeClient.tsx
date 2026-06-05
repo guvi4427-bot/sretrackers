@@ -16,6 +16,16 @@ import { t } from '@/lib/i18n';
 
 const CATEGORIES = ['work', 'personal', 'health', 'learning', 'other'];
 
+/** Sort tasks by fromTime ascending; tasks without a time go to the bottom */
+function sortByTime(tasks: any[]): any[] {
+  return [...tasks].sort((a, b) => {
+    if (a.fromTime && b.fromTime) return a.fromTime.localeCompare(b.fromTime);
+    if (a.fromTime) return -1;
+    if (b.fromTime) return 1;
+    return 0;
+  });
+}
+
 function formatTime(time: string): string {
   if (!time) return '';
   const [h, m] = time.split(':').map(Number);
@@ -441,14 +451,14 @@ export default function TimeClient() {
   const fetchTasks = useCallback(async () => {
     try {
       const r = await fetch(`/api/time/tasks?date=${today}`);
-      if (r.ok) { const d = await r.json(); setTasks(Array.isArray(d) ? d : d.tasks || []); }
+      if (r.ok) { const d = await r.json(); setTasks(sortByTime(Array.isArray(d) ? d : d.tasks || [])); }
     } catch {}
   }, [today]);
 
   const fetchTomorrowTasks = useCallback(async () => {
     try {
       const r = await fetch(`/api/time/tasks?date=${tomorrow}`);
-      if (r.ok) { const d = await r.json(); setTomorrowTasks(Array.isArray(d) ? d : d.tasks || []); }
+      if (r.ok) { const d = await r.json(); setTomorrowTasks(sortByTime(Array.isArray(d) ? d : d.tasks || [])); }
     } catch {}
   }, [tomorrow]);
 
@@ -478,7 +488,7 @@ export default function TimeClient() {
     Promise.all(last7.map(async dateStr => {
       try {
         const r = await fetch(`/api/time/tasks?date=${dateStr}`);
-        if (r.ok) { const d = await r.json(); return { dateStr, tasks: Array.isArray(d) ? d : d.tasks || [] }; }
+        if (r.ok) { const d = await r.json(); return { dateStr, tasks: sortByTime(Array.isArray(d) ? d : d.tasks || []) }; }
       } catch {}
       return { dateStr, tasks: [] as any[] };
     })).then(results => {
