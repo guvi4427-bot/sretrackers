@@ -110,7 +110,7 @@ async function checkCriteria(userId: string, criteria: CriteriaCheck): Promise<{
       current = await db.focusSession.count({ where: { userId, completed: true } });
       break;
     case 'time_tasks':
-      current = await db.timeTask.count({ where: { userId, status: 'completed' } });
+      current = await db.timeTask.count({ where: { userId, status: { in: ['completed', 'partially_completed'] } } });
       break;
     case 'time_focus_duration': {
       const result = await db.focusSession.aggregate({ where: { userId, completed: true }, _sum: { duration: true } });

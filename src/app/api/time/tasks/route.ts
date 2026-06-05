@@ -4,6 +4,10 @@ import { authOptions } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { awardXP, updateStreak, reverseXP } from '@/lib/xp';
 
+const VALID_STATUSES = ['pending', 'in_progress', 'completed', 'partially_completed', 'missed'];
+const TASK_XP = 20; // base XP for a completed task
+const PARTIAL_XP_PERCENT = 0.6; // 60% for partially completed
+
 export async function GET(req: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
@@ -46,6 +50,13 @@ export async function POST(req: NextRequest) {
 
     const taskDate = date || new Date().toISOString().split('T')[0];
 
+    // Only allow today or tomorrow
+    const today = new Date().toISOString().split('T')[0];
+    const tomorrow = new Date(Date.now() + 86400000).toISOString().split('T')[0];
+    if (taskDate !== today && taskDate !== tomorrow) {
+      return NextResponse.json({ error: 'Tasks can only be scheduled for today or tomorrow' }, { status: 400 });
+    }
+
     const maxOrderTask = await db.timeTask.findFirst({
       where: { userId: session.user.id, date: taskDate },
       orderBy: { order: 'desc' },
@@ -83,7 +94,7 @@ export async function PATCH(req: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
     const body = await req.json();
-    const { id, status, priority, order } = body;
+    const { id, status, priority, order, reflectionNote } = body;
 
     if (!id) {
       return NextResponse.json({ error: 'Task ID is required' }, { status: 400 });
@@ -97,14 +108,40 @@ export async function PATCH(req: NextRequest) {
     }
 
     const data: Record<string, unknown> = {};
-    if (status !== undefined) data.status = status;
+    if (status !== undefined) {
+      if (!VALID_STATUSES.includes(status)) {
+        return NextResponse.json({ error: 'Invalid status' }, { status: 400 });
+      }
+      data.status = status;
+    }
     if (priority !== undefined) data.priority = priority;
     if (order !== undefined) data.order = order;
+    if (reflectionNote !== undefined) data.reflectionNote = reflectionNote;
 
-    // Award XP when completing a task
-    if (status === 'completed' && existing.status !== 'completed') {
-      data.completedAt = new Date();
-      await awardXP(session.user.id, 'social', 'Task completed: ' + existing.title);
+    let xpResult: { awarded: number; reason: string } | null = null;
+
+    // ── Execution-Based XP System ──
+    // Award XP ONLY when status changes to a terminal state (completed/partial/missed)
+    // AND only if XP has never been awarded for this task before (xpAwarded === false)
+    if (status && status !== existing.status && !existing.xpAwarded) {
+      if (status === 'completed') {
+        data.completedAt = new Date();
+        data.xpAwarded = true;
+        await awardXP(session.user.id, 'task', 'Task completed: ' + existing.title);
+        xpResult = { awarded: TASK_XP, reason: 'Task completed' };
+      } else if (status === 'partially_completed') {
+        data.completedAt = new Date();
+        data.xpAwarded = true;
+        const partialXP = Math.round(TASK_XP * PARTIAL_XP_PERCENT);
+        await awardXP(session.user.id, 'task', 'Task partially completed: ' + existing.title);
+        // The awardXP uses XP_REWARDS.task = 20, but we want 60% = 12
+        // Reverse the 20 and award the correct 12
+        await reverseXP(session.user.id, TASK_XP - partialXP, 'Partial completion adjustment: ' + existing.title);
+        xpResult = { awarded: partialXP, reason: 'Task partially completed (60%)' };
+      } else if (status === 'missed') {
+        data.xpAwarded = true; // Mark as processed — no XP for missed
+        xpResult = { awarded: 0, reason: 'Task missed — no XP' };
+      }
     }
 
     const task = await db.timeTask.update({
@@ -112,7 +149,7 @@ export async function PATCH(req: NextRequest) {
       data,
     });
 
-    return NextResponse.json({ task });
+    return NextResponse.json({ task, xp: xpResult });
   } catch (error) {
     console.error('PATCH /api/time/tasks error:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
@@ -154,9 +191,12 @@ export async function DELETE(req: NextRequest) {
       return NextResponse.json({ error: 'Task not found' }, { status: 404 });
     }
 
-    // Reverse XP if task was completed (5 XP for task completion)
-    if (existing.status === 'completed') {
-      await reverseXP(session.user.id, 5, `Deleted completed task: ${existing.title}`);
+    // Reverse XP if task had XP awarded
+    if (existing.xpAwarded && existing.status === 'completed') {
+      await reverseXP(session.user.id, TASK_XP, `Deleted completed task: ${existing.title}`);
+    } else if (existing.xpAwarded && existing.status === 'partially_completed') {
+      const partialXP = Math.round(TASK_XP * PARTIAL_XP_PERCENT);
+      await reverseXP(session.user.id, partialXP, `Deleted partially completed task: ${existing.title}`);
     }
 
     await db.timeTask.delete({ where: { id } });

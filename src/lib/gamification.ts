@@ -8,6 +8,7 @@ export const XP_REWARDS = {
   social: 5,
   quest: 15,
   daily_log: 10,
+  task: 20,
 } as const;
 
 // Level thresholds: level -> XP needed to reach that level
