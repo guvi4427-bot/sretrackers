@@ -80,22 +80,8 @@ function TaskCard({ task, currentTab, onToggleTask, onUpdateTaskStatus, onDelete
   const isDone = task.status === 'completed';
   const isMissed = task.status === 'missed';
   const isPartial = task.status === 'partially_completed';
-  const [showStatusMenu, setShowStatusMenu] = useState(false);
   const [showReflection, setShowReflection] = useState(false);
   const [localReflection, setLocalReflection] = useState(task.reflectionNote || '');
-  const statusMenuRef = useRef<HTMLDivElement>(null);
-
-  // Close status menu on outside click
-  useEffect(() => {
-    if (!showStatusMenu) return;
-    function handleClick(e: MouseEvent) {
-      if (statusMenuRef.current && !statusMenuRef.current.contains(e.target as Node)) {
-        setShowStatusMenu(false);
-      }
-    }
-    document.addEventListener('mousedown', handleClick);
-    return () => document.removeEventListener('mousedown', handleClick);
-  }, [showStatusMenu]);
 
   async function saveLocalReflection() {
     if (!localReflection.trim()) { setShowReflection(false); return; }
@@ -111,7 +97,7 @@ function TaskCard({ task, currentTab, onToggleTask, onUpdateTaskStatus, onDelete
   }
 
   return (
-    <GlassCard className={`p-3 relative overflow-visible ${showStatusMenu ? 'z-50' : ''} ${isDone ? 'opacity-60' : ''} ${isMissed ? 'border-red-500/30' : ''} ${isPartial ? 'border-amber-500/30' : ''}`}>
+    <GlassCard className={`p-3 ${isDone ? 'opacity-60' : ''} ${isMissed ? 'border-red-500/30' : ''} ${isPartial ? 'border-amber-500/30' : ''}`}>
       <div className="flex items-center gap-3">
         <button
           onClick={() => onToggleTask(task.id, task.status, currentTab)}
@@ -142,35 +128,37 @@ function TaskCard({ task, currentTab, onToggleTask, onUpdateTaskStatus, onDelete
             )}
           </div>
         </div>
-        <div className="flex items-center gap-1 shrink-0">
+        <div className="flex items-center gap-0.5 shrink-0">
           {task.status !== 'completed' && (
-            <div className="relative" ref={statusMenuRef}>
+            <>
               <button
-                onClick={() => setShowStatusMenu(!showStatusMenu)}
-                className="text-[10px] text-muted-foreground/50 hover:text-foreground px-1 py-0.5 rounded bg-accent/50"
+                onClick={() => onUpdateTaskStatus(task.id, 'completed', currentTab)}
+                className="w-6 h-6 rounded-full bg-green-600/15 hover:bg-green-600/30 flex items-center justify-center transition-colors"
+                title="Done"
               >
-                Status
+                <Check size={11} className="text-green-400" />
               </button>
-              {showStatusMenu && (
-                <div className="absolute right-0 top-6 z-50 bg-popover border border-border rounded-lg shadow-lg overflow-hidden min-w-[140px]">
-                  {['completed', 'partially_completed', 'missed'].map(s => (
-                    <button
-                      key={s}
-                      onClick={async () => {
-                        setShowStatusMenu(false);
-                        await onUpdateTaskStatus(task.id, s, currentTab);
-                        if ((s === 'missed' || s === 'partially_completed') && !task.reflectionNote) {
-                          onSetReflectionModal({ taskId: task.id, title: task.title, status: s });
-                        }
-                      }}
-                      className="w-full text-left px-3 py-1.5 text-xs hover:bg-accent/50 text-foreground"
-                    >
-                      <StatusBadge status={s} />
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
+              <button
+                onClick={async () => {
+                  await onUpdateTaskStatus(task.id, 'partially_completed', currentTab);
+                  if (!task.reflectionNote) onSetReflectionModal({ taskId: task.id, title: task.title, status: 'partially_completed' });
+                }}
+                className="w-6 h-6 rounded-full bg-amber-600/15 hover:bg-amber-600/30 flex items-center justify-center transition-colors"
+                title="Partial"
+              >
+                <CircleDashed size={11} className="text-amber-400" />
+              </button>
+              <button
+                onClick={async () => {
+                  await onUpdateTaskStatus(task.id, 'missed', currentTab);
+                  if (!task.reflectionNote) onSetReflectionModal({ taskId: task.id, title: task.title, status: 'missed' });
+                }}
+                className="w-6 h-6 rounded-full bg-red-600/15 hover:bg-red-600/30 flex items-center justify-center transition-colors"
+                title="Missed"
+              >
+                <AlertTriangle size={11} className="text-red-400" />
+              </button>
+            </>
           )}
           {(isMissed || isPartial) && (
             <button
