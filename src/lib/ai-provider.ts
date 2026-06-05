@@ -382,9 +382,11 @@ export async function aiClassifyTask(
   const CATS: Record<string, string[]> = {
     work:     ['meeting','email','report','presentation','deadline','project','client','review','code','deploy','git','standup','sprint','task','assign','deliver','proposal','invoice','contract'],
     personal: ['grocery','clean','laundry','cook','bill','pay','appointment','family','friend','home','repair','organize','shopping'],
-    health:   ['gym','workout','exercise','run','walk','yoga','meditation','doctor','medicine','sleep','stretch','vitamin','water','diet','protein','meal prep'],
+    health:   ['gym','workout','exercise','run','walk','yoga','meditation','doctor','medicine','sleep','stretch','vitamin','water','diet','protein','meal prep','lunch','breakfast','dinner','meal','eat','shower','bath','wake up','waking up','wake','nap','rest','hydrate','brush','skincare','self care','self-care'],
     learning: ['study','read','book','course','tutorial','learn','practice','research','homework','quiz','exam','note','revise','certificate'],
   };
+  // Routine self-care keywords that are ALWAYS productive — immune to AI override
+  const ROUTINE_PRODUCTIVE = ['wake up','waking up','wake','lunch','breakfast','dinner','meal','eat','shower','bath','nap','rest','hydrate','brush','skincare','self care','self-care','get ready','morning routine','night routine','bedtime','sleep','tea time','snack'];
   const UNPRODUCTIVE = ['scroll','binge','procrastinate','lazy','waste','distraction','social media','netflix','youtube browse','doom scroll','overthink','complain','idle','nothing','instagram reels','reels','tiktok scroll','shorts','scrolling','mindless browsing','youtube shorts','snapchat','facebook scroll','instagram','tiktok'];
   const SUGGESTIONS: Record<string, string> = {
     scroll: 'Try: Read an article for 15 minutes instead',
@@ -404,7 +406,8 @@ export async function aiClassifyTask(
     const m = kws.filter(kw => text.includes(kw)).length;
     if (m > maxMatches) { maxMatches = m; category = cat; }
   }
-  const isUnproductive = UNPRODUCTIVE.some(kw => text.includes(kw));
+  const isRoutine = ROUTINE_PRODUCTIVE.some(kw => text.includes(kw));
+  const isUnproductive = !isRoutine && UNPRODUCTIVE.some(kw => text.includes(kw));
   let productivity = isUnproductive ? 'unproductive' : 'productive';
   let suggestion: string | undefined;
   for (const [kw, sug] of Object.entries(SUGGESTIONS)) {
@@ -414,17 +417,19 @@ export async function aiClassifyTask(
     suggestion = 'Try replacing this with a 15-minute learning or exercise activity';
   }
 
-  // Enhance with real AI
-  try {
-    const result = await aiStructuredChat<{ category: string; productivity: string; suggestion?: string }>(
-      [{ role: 'user', content: `Classify this task: "${title}". ${description || ''}` }],
-      'You are a task classifier. Respond ONLY with valid JSON: {"category":"work|personal|health|learning|other","productivity":"productive|unproductive","suggestion":"short replacement tip if unproductive, omit if productive"}',
-      120,
-    );
-    if (result?.category) category = result.category;
-    if (result?.productivity) productivity = result.productivity;
-    if (result?.suggestion) suggestion = result.suggestion;
-  } catch { /* keyword result already computed above */ }
+  // Enhance with real AI — but routine self-care tasks are ALWAYS productive, AI cannot override
+  if (!isRoutine) {
+    try {
+      const result = await aiStructuredChat<{ category: string; productivity: string; suggestion?: string }>(
+        [{ role: 'user', content: `Classify this task: "${title}". ${description || ''}` }],
+        'You are a task classifier. Respond ONLY with valid JSON: {"category":"work|personal|health|learning|other","productivity":"productive|unproductive","suggestion":"short replacement tip if unproductive, omit if productive"}',
+        120,
+      );
+      if (result?.category) category = result.category;
+      if (result?.productivity) productivity = result.productivity;
+      if (result?.suggestion) suggestion = result.suggestion;
+    } catch { /* keyword result already computed above */ }
+  }
 
   return { category, productivity, suggestion };
 }

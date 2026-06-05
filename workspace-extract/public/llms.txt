@@ -1,0 +1,26 @@
+# SRE — Start • Restart • Explore
+
+> SRE is a self-growth ecosystem platform built around progression, accountability, consistency, and community-driven improvement. It unifies learning progression, fitness tracking, content creation journeys, social discovery, AI-assisted learning, and live updates into one platform.
+
+## What this platform does
+- Public progression feed: users share live learning, fitness, and content creation updates
+- Discover system: topic, post, user, and group discovery with hashtag-based search
+- Fitness tracking: log workouts, consistency streaks, and share progress
+- Content creator tracking: document creative journeys publicly
+- AI-assisted learning: guided topic exploration (preview for guests, full for members)
+- Community: profiles, groups, friends, progression-based communities
+
+## Who it helps
+Students, self-improvement enthusiasts, beginners learning skills, fitness learners, content creators, productivity-focused individuals.
+
+## Platform philosophy
+SRE stands for Start • Restart • Explore — representing starting new journeys, restarting abandoned goals, and exploring new domains.
+
+## Key URLs
+- Home: https://sretrack.vercel.app/
+- Feed: https://sretrack.vercel.app/feed
+- Discover: https://sretrack.vercel.app/discover
+- About: https://sretrack.vercel.app/about
+- Privacy Policy: https://sretrack.vercel.app/privacy
+- Terms: https://sretrack.vercel.app/terms
+- Contact: https://sretrack.vercel.app/contact
