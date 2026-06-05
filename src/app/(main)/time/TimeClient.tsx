@@ -83,6 +83,19 @@ function TaskCard({ task, currentTab, onToggleTask, onUpdateTaskStatus, onDelete
   const [showStatusMenu, setShowStatusMenu] = useState(false);
   const [showReflection, setShowReflection] = useState(false);
   const [localReflection, setLocalReflection] = useState(task.reflectionNote || '');
+  const statusMenuRef = useRef<HTMLDivElement>(null);
+
+  // Close status menu on outside click
+  useEffect(() => {
+    if (!showStatusMenu) return;
+    function handleClick(e: MouseEvent) {
+      if (statusMenuRef.current && !statusMenuRef.current.contains(e.target as Node)) {
+        setShowStatusMenu(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, [showStatusMenu]);
 
   async function saveLocalReflection() {
     if (!localReflection.trim()) { setShowReflection(false); return; }
@@ -98,7 +111,7 @@ function TaskCard({ task, currentTab, onToggleTask, onUpdateTaskStatus, onDelete
   }
 
   return (
-    <GlassCard className={`p-3 ${isDone ? 'opacity-60' : ''} ${isMissed ? 'border-red-500/30' : ''} ${isPartial ? 'border-amber-500/30' : ''}`}>
+    <GlassCard className={`p-3 relative overflow-visible ${showStatusMenu ? 'z-50' : ''} ${isDone ? 'opacity-60' : ''} ${isMissed ? 'border-red-500/30' : ''} ${isPartial ? 'border-amber-500/30' : ''}`}>
       <div className="flex items-center gap-3">
         <button
           onClick={() => onToggleTask(task.id, task.status, currentTab)}
@@ -131,7 +144,7 @@ function TaskCard({ task, currentTab, onToggleTask, onUpdateTaskStatus, onDelete
         </div>
         <div className="flex items-center gap-1 shrink-0">
           {task.status !== 'completed' && (
-            <div className="relative">
+            <div className="relative" ref={statusMenuRef}>
               <button
                 onClick={() => setShowStatusMenu(!showStatusMenu)}
                 className="text-[10px] text-muted-foreground/50 hover:text-foreground px-1 py-0.5 rounded bg-accent/50"
@@ -139,7 +152,7 @@ function TaskCard({ task, currentTab, onToggleTask, onUpdateTaskStatus, onDelete
                 Status
               </button>
               {showStatusMenu && (
-                <div className="absolute right-0 top-6 z-20 bg-popover border border-border rounded-lg shadow-lg overflow-hidden min-w-[140px]">
+                <div className="absolute right-0 top-6 z-50 bg-popover border border-border rounded-lg shadow-lg overflow-hidden min-w-[140px]">
                   {['completed', 'partially_completed', 'missed'].map(s => (
                     <button
                       key={s}
