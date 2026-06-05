@@ -117,6 +117,21 @@ async function checkCriteria(userId: string, criteria: CriteriaCheck): Promise<{
       current = result._sum.duration || 0;
       break;
     }
+    case 'time_reflections':
+      current = await db.timeTask.count({ where: { userId, reflectionNote: { not: null } } });
+      break;
+    case 'time_tomorrow_tasks': {
+      // Count tasks where date is in the future (planned for tomorrow+)
+      const todayStr = new Date().toISOString().split('T')[0];
+      current = await db.timeTask.count({ where: { userId, date: { gt: todayStr } } });
+      break;
+    }
+    case 'time_partial_tasks':
+      current = await db.timeTask.count({ where: { userId, status: 'partially_completed' } });
+      break;
+    case 'time_missed_reflected':
+      current = await db.timeTask.count({ where: { userId, status: 'missed', reflectionNote: { not: null } } });
+      break;
     case 'content_posts':
       current = await db.post.count({ where: { userId } });
       break;

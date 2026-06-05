@@ -230,7 +230,7 @@ export default function AIHubClient() {
     <div className="flex h-[calc(100vh-7rem)] md:h-[calc(100vh-4rem)] overflow-hidden">
       {/* Sidebar */}
       <ChatSidebar
-        agentType="all"
+        agentType="general"
         currentConversationId={conversationId}
         onSelectConversation={handleSelectConversation}
         onNewChat={handleNewChat}

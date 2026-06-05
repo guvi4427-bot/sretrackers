@@ -149,7 +149,7 @@ export const ACHIEVEMENT_DEFS: AchievementDef[] = [
   { key: "fit_wt_legendary", name: "Barbarian", description: "Log 200 weight training sessions", iconEmoji: "🔱", xpReward: 500, tier: "platinum", category: "fitness", criteria: { type: "weight_training_sessions", value: 200 } },
 
   // ═══════════════════════════════════════════════
-  // TIME ACHIEVEMENTS (25)
+  // TIME ACHIEVEMENTS (39)
   // ═══════════════════════════════════════════════
   { key: "time_first_focus", name: "Focus Starter", description: "Complete your first focus session", iconEmoji: "🎯", xpReward: 15, tier: "bronze", category: "time", criteria: { type: "time_focus", value: 1 } },
   { key: "time_five_focus", name: "Focus Builder", description: "Complete 5 focus sessions", iconEmoji: "🧘", xpReward: 25, tier: "bronze", category: "time", criteria: { type: "time_focus", value: 5 } },
@@ -173,6 +173,27 @@ export const ACHIEVEMENT_DEFS: AchievementDef[] = [
   { key: "time_xp_500", name: "XP Earner", description: "Earn 500 total XP", iconEmoji: "✨", xpReward: 25, tier: "bronze", category: "time", criteria: { type: "xp", value: 500 } },
   { key: "time_xp_5000", name: "XP Master", description: "Earn 5000 total XP", iconEmoji: "💫", xpReward: 100, tier: "gold", category: "time", criteria: { type: "xp", value: 5000 } },
   { key: "time_xp_50000", name: "XP Demigod", description: "Earn 50000 total XP", iconEmoji: "🌟", xpReward: 300, tier: "platinum", category: "time", criteria: { type: "xp", value: 50000 } },
+
+  // ── Reflection & Self-Awareness Achievements ──
+  { key: "time_first_reflection", name: "Honest Mirror", description: "Write your first reflection on a missed or partial task", iconEmoji: "🪞", xpReward: 15, tier: "bronze", category: "time", criteria: { type: "time_reflections", value: 1 } },
+  { key: "time_five_reflections", name: "Self-Aware", description: "Write 5 reflections on missed or partial tasks", iconEmoji: "🔍", xpReward: 30, tier: "bronze", category: "time", criteria: { type: "time_reflections", value: 5 } },
+  { key: "time_ten_reflections", name: "Reflective Mind", description: "Write 10 reflections on missed or partial tasks", iconEmoji: "💭", xpReward: 50, tier: "silver", category: "time", criteria: { type: "time_reflections", value: 10 } },
+  { key: "time_twenty_reflections", name: "Growth Mindset", description: "Write 20 reflections — you learn from every setback", iconEmoji: "🌱", xpReward: 100, tier: "gold", category: "time", criteria: { type: "time_reflections", value: 20 } },
+
+  // ── Tomorrow Planning Achievements ──
+  { key: "time_first_tomorrow", name: "Future Planner", description: "Plan your first task for tomorrow", iconEmoji: "🌙", xpReward: 15, tier: "bronze", category: "time", criteria: { type: "time_tomorrow_tasks", value: 1 } },
+  { key: "time_five_tomorrow", name: "Ahead of the Curve", description: "Plan 5 tasks for tomorrow across different days", iconEmoji: "📅", xpReward: 30, tier: "bronze", category: "time", criteria: { type: "time_tomorrow_tasks", value: 5 } },
+  { key: "time_ten_tomorrow", name: "Strategic Planner", description: "Plan 10 tomorrow tasks — always one step ahead", iconEmoji: "🗓️", xpReward: 50, tier: "silver", category: "time", criteria: { type: "time_tomorrow_tasks", value: 10 } },
+  { key: "time_thirty_tomorrow", name: "Visionary", description: "Plan 30 tomorrow tasks — your future self thanks you", iconEmoji: "🔭", xpReward: 100, tier: "gold", category: "time", criteria: { type: "time_tomorrow_tasks", value: 30 } },
+
+  // ── Partial Completion Achievements ──
+  { key: "time_first_partial", name: "Half Battle Won", description: "Mark your first task as partially completed", iconEmoji: "⚡", xpReward: 10, tier: "bronze", category: "time", criteria: { type: "time_partial_tasks", value: 1 } },
+  { key: "time_ten_partial", name: "Progress Over Perfection", description: "Mark 10 tasks as partially completed — showing up matters", iconEmoji: "🔥", xpReward: 40, tier: "silver", category: "time", criteria: { type: "time_partial_tasks", value: 10 } },
+
+  // ── Missed But Reflected Achievements ──
+  { key: "time_missed_reflected_3", name: "Accountability Starts", description: "Reflect on 3 missed tasks — owning it is the first step", iconEmoji: "🎯", xpReward: 25, tier: "bronze", category: "time", criteria: { type: "time_missed_reflected", value: 3 } },
+  { key: "time_missed_reflected_10", name: "Accountability Master", description: "Reflect on 10 missed tasks — turning failures into lessons", iconEmoji: "🏆", xpReward: 75, tier: "silver", category: "time", criteria: { type: "time_missed_reflected", value: 10 } },
+  { key: "time_missed_reflected_25", name: "Phoenix Rising", description: "Reflect on 25 missed tasks — you never give up on growth", iconEmoji: "🔥", xpReward: 150, tier: "gold", category: "time", criteria: { type: "time_missed_reflected", value: 25 } },
 
   // ═══════════════════════════════════════════════
   // CONTENT ACHIEVEMENTS (25)

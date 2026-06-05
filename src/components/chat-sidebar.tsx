@@ -32,7 +32,6 @@ interface ConversationItem {
 }
 
 const AGENT_FILTERS = [
-  { key: 'all', label: 'All', color: '' },
   { key: 'general', label: 'Main', color: 'blue' },
   { key: 'learning', label: 'Learning', color: 'purple' },
   { key: 'fitness', label: 'Fitness', color: 'green' },
