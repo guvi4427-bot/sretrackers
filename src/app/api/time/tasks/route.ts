@@ -4,6 +4,16 @@ import { authOptions } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { awardXP, updateStreak, reverseXP } from '@/lib/xp';
 
+/** Returns YYYY-MM-DD using the server's local timezone (matches Vercel's UTC, but client sends its own date) */
+function localDateStr(offsetDays = 0): string {
+  const d = new Date();
+  d.setDate(d.getDate() + offsetDays);
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
 const VALID_STATUSES = ['pending', 'in_progress', 'completed', 'partially_completed', 'missed'];
 const TASK_XP = 20; // base XP for a completed task
 const PARTIAL_XP_PERCENT = 0.6; // 60% for partially completed
@@ -15,7 +25,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
     const { searchParams } = new URL(req.url);
-    const date = searchParams.get('date') || new Date().toISOString().split('T')[0];
+    const date = searchParams.get('date') || localDateStr();
     const status = searchParams.get('status');
     const category = searchParams.get('category');
 
@@ -48,11 +58,11 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Title is required' }, { status: 400 });
     }
 
-    const taskDate = date || new Date().toISOString().split('T')[0];
+    const taskDate = date || localDateStr();
 
     // Only allow today or tomorrow
-    const today = new Date().toISOString().split('T')[0];
-    const tomorrow = new Date(Date.now() + 86400000).toISOString().split('T')[0];
+    const today = localDateStr();
+    const tomorrow = localDateStr(1);
     if (taskDate !== today && taskDate !== tomorrow) {
       return NextResponse.json({ error: 'Tasks can only be scheduled for today or tomorrow' }, { status: 400 });
     }

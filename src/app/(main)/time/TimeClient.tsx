@@ -29,8 +29,14 @@ function isAfter7PM(): boolean {
   return now.getHours() >= 19;
 }
 
-function getTomorrow(): string {
-  return new Date(Date.now() + 86400000).toISOString().split('T')[0];
+/** Returns YYYY-MM-DD in the user's LOCAL timezone (not UTC) */
+function getLocalDateStr(offsetDays = 0): string {
+  const d = new Date();
+  d.setDate(d.getDate() + offsetDays);
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
 }
 
 // ── Static components (moved outside render to satisfy react-hooks/static-components) ──
@@ -414,10 +420,22 @@ export default function TimeClient() {
   const [chatLoading, setChatLoading] = useState(false);
   const [conversationId, setConversationId] = useState<string | null>(null);
 
-  const today = new Date().toISOString().split('T')[0];
-  const tomorrow = getTomorrow();
+  const today = getLocalDateStr(0);
+  const tomorrow = getLocalDateStr(1);
   const [historyTasks, setHistoryTasks] = useState<Record<string, any[]>>({});
   const [expandedDays, setExpandedDays] = useState<Record<string, boolean>>({});
+  const [upcomingExpanded, setUpcomingExpanded] = useState(true);
+
+  // Force re-render at midnight so today/tomorrow dates update
+  useEffect(() => {
+    const now = new Date();
+    const msUntilMidnight = ((24 - now.getHours()) * 60 - now.getMinutes()) * 60000 - now.getSeconds() * 1000;
+    const timeout = setTimeout(() => {
+      // Trigger re-render by flipping a dummy state; today/tomorrow are computed each render
+      setUpcomingExpanded(prev => prev);
+    }, msUntilMidnight + 1000);
+    return () => clearTimeout(timeout);
+  }, [today]);
 
   const fetchTasks = useCallback(async () => {
     try {
@@ -454,8 +472,7 @@ export default function TimeClient() {
   useEffect(() => {
     fetchTasks(); fetchTomorrowTasks(); fetchFocusSessions(); fetchReviewData(); fetchPlanningInsights();
     const last7 = Array.from({ length: 7 }, (_, i) => {
-      const d = new Date(); d.setDate(d.getDate() - (i + 1));
-      return d.toISOString().split('T')[0];
+      return getLocalDateStr(-(i + 1));
     });
     Promise.all(last7.map(async dateStr => {
       try {
@@ -602,7 +619,7 @@ export default function TimeClient() {
   // Auto-mark yesterday's pending tasks as missed
   useEffect(() => {
     const markMissed = async () => {
-      const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+      const yesterday = getLocalDateStr(-1);
       try {
         const r = await fetch(`/api/time/tasks?date=${yesterday}`);
         if (r.ok) {
@@ -670,7 +687,13 @@ export default function TimeClient() {
         {/* Today Tab */}
         <TabsContent value="today" className="space-y-4 mt-4">
           <AddTaskForm defaultDate="today" today={today} tomorrow={tomorrow} filterCategory={filterCategory} onSetFilterCategory={setFilterCategory} onRefresh={refreshTab} />
+
+          {/* ── Today's Scheduled Tasks ── */}
           <div className="space-y-2">
+            <div className="flex items-center gap-2 px-1">
+              <span className="text-xs font-semibold text-foreground">Today</span>
+              {tasks.length > 0 && <span className="text-[10px] text-muted-foreground/50">{tasks.length} task{tasks.length !== 1 ? 's' : ''}</span>}
+            </div>
             {filteredTodayTasks.map((task: any) => (
               <TaskCard key={task.id} task={task} currentTab="today" onToggleTask={toggleTask} onUpdateTaskStatus={updateTaskStatus} onDeleteTask={deleteTask} onSetReflectionModal={setReflectionModal} onRefresh={refreshTab} />
             ))}
@@ -678,6 +701,38 @@ export default function TimeClient() {
               <p className="text-center text-muted-foreground/50 py-8 text-sm">No tasks for today. Add one above!</p>
             )}
           </div>
+
+          {/* ── Upcoming Scheduled Tasks (Tomorrow preview) ── */}
+          {tomorrowTasks.length > 0 && (
+            <div className="space-y-2">
+              <button
+                onClick={() => setUpcomingExpanded(!upcomingExpanded)}
+                className="flex items-center gap-2 px-1 w-full text-left"
+              >
+                <motion.div animate={{ rotate: upcomingExpanded ? 180 : 0 }} transition={{ duration: 0.2 }}>
+                  <ChevronDown size={14} className="text-indigo-400" />
+                </motion.div>
+                <span className="text-xs font-semibold text-indigo-400">Tomorrow</span>
+                <span className="text-[10px] text-muted-foreground/50">{tomorrowTasks.length} task{tomorrowTasks.length !== 1 ? 's' : ''}</span>
+              </button>
+              <AnimatePresence>
+                {upcomingExpanded && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: 'auto', opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={{ duration: 0.2 }}
+                    className="overflow-hidden space-y-2"
+                  >
+                    {filteredTomorrowTasks.map((task: any) => (
+                      <TaskCard key={task.id} task={task} currentTab="tomorrow" onToggleTask={toggleTask} onUpdateTaskStatus={updateTaskStatus} onDeleteTask={deleteTask} onSetReflectionModal={setReflectionModal} onRefresh={refreshTab} />
+                    ))}
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+          )}
+
           <div className="flex gap-2">
             <Button onClick={rankUnproductive} variant="ghost" className="text-purple-400 hover:text-purple-300 text-xs"><Sparkles size={14} className="mr-1" />{t('time.aiRankUnproductive')}</Button>
             <Button onClick={async () => { await fetch('/api/time/tasks', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ resetAll: true }) }); fetchTasks(); window.dispatchEvent(new CustomEvent('xp-updated')); window.dispatchEvent(new CustomEvent('notification-updated')); }} variant="ghost" className="text-red-400 hover:text-red-300 text-xs">{t('common.reset')} All</Button>
@@ -687,8 +742,7 @@ export default function TimeClient() {
           <div className="space-y-2 mt-4">
             <p className="text-xs text-muted-foreground/50 px-1">Past 7 Days</p>
             {Array.from({ length: 7 }, (_, i) => {
-              const d = new Date(); d.setDate(d.getDate() - (i + 1));
-              return d.toISOString().split('T')[0];
+              return getLocalDateStr(-(i + 1));
             }).map(dateStr => {
               const dayTasks = historyTasks[dateStr] || [];
               const isExp = expandedDays[dateStr] ?? false;

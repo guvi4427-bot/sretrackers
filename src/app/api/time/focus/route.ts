@@ -4,6 +4,12 @@ import { authOptions } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { awardXP, updateStreak, reverseXP } from '@/lib/xp';
 
+function localDateStr(offsetDays = 0): string {
+  const d = new Date();
+  d.setDate(d.getDate() + offsetDays);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
 export async function GET(req: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
@@ -42,7 +48,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Task name and duration are required' }, { status: 400 });
     }
 
-    const sessionDate = date || new Date().toISOString().split('T')[0];
+    const sessionDate = date || localDateStr();
     const isCompleted = completed !== false;
 
     const focusSession = await db.focusSession.create({

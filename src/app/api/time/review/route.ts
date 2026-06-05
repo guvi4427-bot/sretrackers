@@ -12,8 +12,11 @@ export async function GET(req: NextRequest) {
 
     const { searchParams } = new URL(req.url);
     const days = parseInt(searchParams.get('days') || '7');
-    const today = new Date().toISOString().split('T')[0];
-    const startDate = new Date(Date.now() - days * 86400000).toISOString().split('T')[0];
+    const now = new Date();
+    const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    const startD = new Date();
+    startD.setDate(startD.getDate() - days);
+    const startDate = `${startD.getFullYear()}-${String(startD.getMonth() + 1).padStart(2, '0')}-${String(startD.getDate()).padStart(2, '0')}`;
 
     // Fetch tasks for the review period
     const tasks = await db.timeTask.findMany({

@@ -11,7 +11,9 @@ export async function GET(req: NextRequest) {
     }
 
     // Look at the last 14 days of task data for insights
-    const startDate = new Date(Date.now() - 14 * 86400000).toISOString().split('T')[0];
+    const startD = new Date();
+    startD.setDate(startD.getDate() - 14);
+    const startDate = `${startD.getFullYear()}-${String(startD.getMonth() + 1).padStart(2, '0')}-${String(startD.getDate()).padStart(2, '0')}`;
     const tasks = await db.timeTask.findMany({
       where: {
         userId: session.user.id,

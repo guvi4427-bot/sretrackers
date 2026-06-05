@@ -122,7 +122,8 @@ async function checkCriteria(userId: string, criteria: CriteriaCheck): Promise<{
       break;
     case 'time_tomorrow_tasks': {
       // Count tasks where date is in the future (planned for tomorrow+)
-      const todayStr = new Date().toISOString().split('T')[0];
+      const now = new Date();
+      const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
       current = await db.timeTask.count({ where: { userId, date: { gt: todayStr } } });
       break;
     }
