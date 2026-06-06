@@ -109,13 +109,28 @@ async function checkCriteria(userId: string, criteria: CriteriaCheck): Promise<{
       current = await db.focusSession.count({ where: { userId, completed: true } });
       break;
     case 'time_tasks':
-      current = await db.timeTask.count({ where: { userId, status: 'completed' } });
+      current = await db.timeTask.count({ where: { userId, status: { in: ['completed', 'partially_completed'] } } });
       break;
     case 'time_focus_duration': {
       const result = await db.focusSession.aggregate({ where: { userId, completed: true }, _sum: { duration: true } });
       current = result._sum.duration || 0;
       break;
     }
+    case 'time_reflections':
+      current = await db.timeTask.count({ where: { userId, reflectionNote: { not: null } } });
+      break;
+    case 'time_tomorrow_tasks': {
+      const now = new Date();
+      const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+      current = await db.timeTask.count({ where: { userId, date: { gt: todayStr } } });
+      break;
+    }
+    case 'time_partial_tasks':
+      current = await db.timeTask.count({ where: { userId, status: 'partially_completed' } });
+      break;
+    case 'time_missed_reflected':
+      current = await db.timeTask.count({ where: { userId, status: 'missed', reflectionNote: { not: null } } });
+      break;
     case 'content_posts':
       current = await db.post.count({ where: { userId } });
       break;
