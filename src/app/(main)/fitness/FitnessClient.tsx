@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
-import { Dumbbell, Plus, Trash2, Sparkles, Send, Bot, Loader2, Target, Flame, Utensils, Scale, Activity, Edit, Save, X, TrendingUp, ChevronLeft, ChevronDown, Video } from 'lucide-react';
+import { Dumbbell, Plus, Trash2, Sparkles, Send, Bot, Loader2, Target, Flame, Utensils, Scale, Activity, Edit, Save, X, TrendingUp, ChevronLeft, ChevronDown, Video, Beef, AlertCircle, Zap } from 'lucide-react';
 import { GlassCard } from '@/components/glass-card';
 import { AIMessage } from '@/components/ai-message';
 import { AdCard } from '@/components/ad-banner';
@@ -127,6 +127,14 @@ export default function FitnessClient() {
   const [expandedNutritionDays, setExpandedNutritionDays] = useState<Record<string, boolean>>({});
   const [weeklyMacroExpanded, setWeeklyMacroExpanded] = useState(false);
 
+  // Protein Recommendations state
+  const [proteinData, setProteinData] = useState<any>(null);
+  const [proteinLoading, setProteinLoading] = useState(false);
+  const [proteinMealExpanded, setProteinMealExpanded] = useState<Record<string, boolean>>({ breakfast: true, lunch: true, dinner: false, snack: false });
+  const [proteinSafetyExpanded, setProteinSafetyExpanded] = useState(false);
+  const [proteinWinsExpanded, setProteinWinsExpanded] = useState(true);
+  const [proteinAffordableExpanded, setProteinAffordableExpanded] = useState(false);
+
   // Weight training & workout daily log state
   const [selectedWorkoutDate, setSelectedWorkoutDate] = useState(today);
   const [workoutHistory, setWorkoutHistory] = useState<Record<string, any[]>>({});
@@ -190,6 +198,14 @@ export default function FitnessClient() {
     } catch {}
   }, []);
 
+  const fetchProteinRecommendations = useCallback(async () => {
+    setProteinLoading(true);
+    try {
+      const r = await fetch('/api/fitness/protein-recommendations');
+      if (r.ok) { const d = await r.json(); setProteinData(d); }
+    } catch {} finally { setProteinLoading(false); }
+  }, []);
+
   const isDayEndedNutrition = (dateStr: string) => dateStr < today;
 
   const fetchNutritionForDate = useCallback(async (dateStr: string) => {
@@ -217,7 +233,7 @@ export default function FitnessClient() {
   useEffect(() => {
     // Fetch primary data first (profile, today's food/workouts/weights)
     async function loadInitialData() {
-      await Promise.all([fetchProfile(), fetchFoodLogs(), fetchWorkouts(), fetchWeights()]);
+      await Promise.all([fetchProfile(), fetchFoodLogs(), fetchWorkouts(), fetchWeights(), fetchProteinRecommendations()]);
       setDataLoaded(true);
     }
     loadInitialData();
@@ -377,6 +393,7 @@ export default function FitnessClient() {
         toast.success(`+5 ${t('xp.earned')}`);
         setMealName(''); setMealQuantity('1'); setMealUnit('g'); setEstimatedMacros(null); setMealSource(null);
         await fetchFoodLogs(); // ensure list is synced
+        fetchProteinRecommendations(); // refresh protein recommendations
         if (selectedNutritionDate !== today) fetchNutritionForDate(selectedNutritionDate);
         fetchUserProfile();
         window.dispatchEvent(new CustomEvent('xp-updated')); window.dispatchEvent(new CustomEvent('notification-updated'));
@@ -459,6 +476,7 @@ export default function FitnessClient() {
       setFoodLogs(prev => prev.filter(f => f.id !== id));
       await fetch(`/api/fitness/food?id=${id}`, { method: 'DELETE' });
       fetchFoodLogs(); // background sync
+      fetchProteinRecommendations();
       fetchUserProfile();
       window.dispatchEvent(new CustomEvent('xp-updated')); window.dispatchEvent(new CustomEvent('notification-updated'));
     } catch {}
@@ -898,6 +916,252 @@ export default function FitnessClient() {
             )}
             <Button onClick={addFood} className="gradient-blue mt-2 w-full">{t('common.add')}</Button>
           </GlassCard>
+
+          {/* ── Protein Recommendations ── */}
+          {proteinLoading && !proteinData ? (
+            <GlassCard className="p-4 flex items-center justify-center">
+              <Loader2 className="w-5 h-5 text-blue-400 animate-spin mr-2" />
+              <span className="text-sm text-muted-foreground">Loading protein recommendations...</span>
+            </GlassCard>
+          ) : proteinData && (
+            <div className="space-y-3">
+              {/* Protein Target Card */}
+              <GlassCard variant="deep" className="p-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <Beef size={16} className="text-blue-400" />
+                  <h3 className="text-sm font-medium text-foreground">Protein Recommendations</h3>
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-600/20 text-blue-400">{proteinData.proteinTarget.rangeLabel}</span>
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-purple-600/20 text-purple-400 capitalize">{proteinData.profile.dietType.replace('_', '-')}</span>
+                </div>
+
+                {/* Protein Progress Bar */}
+                <div className="mb-3">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-xs text-muted-foreground">Daily Protein Target</span>
+                    <span className="text-xs font-medium text-foreground">{proteinData.proteinTarget.currentG}g / {proteinData.proteinTarget.targetG}g</span>
+                  </div>
+                  <div className="w-full bg-accent rounded-full h-3 overflow-hidden">
+                    <div
+                      className="h-full rounded-full transition-all duration-500"
+                      style={{
+                        width: `${Math.min(100, (proteinData.proteinTarget.currentG / proteinData.proteinTarget.targetG) * 100)}%`,
+                        backgroundColor: proteinData.proteinTarget.currentG >= proteinData.proteinTarget.targetG ? '#22c55e' :
+                          proteinData.proteinTarget.currentG >= proteinData.proteinTarget.targetG * 0.7 ? '#3b82f6' : '#f59e0b',
+                      }}
+                    />
+                  </div>
+                  <div className="flex items-center justify-between mt-1">
+                    <span className="text-[10px] text-muted-foreground/50">{proteinData.proteinTarget.gPerKg} · {proteinData.proteinTarget.minG}–{proteinData.proteinTarget.maxG}g range</span>
+                    <span className={`text-[10px] font-medium ${proteinData.proteinTarget.remainingG > 0 ? 'text-amber-400' : 'text-green-400'}`}>
+                      {proteinData.proteinTarget.remainingG > 0 ? `${proteinData.proteinTarget.remainingG}g remaining` : 'Target reached!'}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Meal Distribution */}
+                <div className="grid grid-cols-4 gap-2">
+                  {Object.entries(proteinData.mealDistribution).map(([meal, grams]: [string, any]) => {
+                    const mealMeta: Record<string, { icon: string; color: string }> = {
+                      breakfast: { icon: '\u{1F305}', color: 'text-amber-400' },
+                      lunch: { icon: '\u2600\uFE0F', color: 'text-yellow-400' },
+                      dinner: { icon: '\u{1F319}', color: 'text-indigo-400' },
+                      snack: { icon: '\u{1F34E}', color: 'text-green-400' },
+                    };
+                    return (
+                      <div key={meal} className="text-center p-2 bg-accent/50 rounded-lg">
+                        <span className="text-sm">{mealMeta[meal]?.icon}</span>
+                        <p className="text-sm font-bold text-blue-400 mt-1">{grams}g</p>
+                        <p className="text-[10px] text-muted-foreground/70 capitalize">{meal}</p>
+                      </div>
+                    );
+                  })}
+                </div>
+              </GlassCard>
+
+              {/* Easy Protein Wins */}
+              {proteinData.easyWins && proteinData.easyWins.length > 0 && (
+                <GlassCard className="p-3 border-green-500/20">
+                  <button
+                    onClick={() => setProteinWinsExpanded(!proteinWinsExpanded)}
+                    className="flex items-center gap-2 w-full text-left mb-2"
+                  >
+                    <Zap size={14} className="text-green-400" />
+                    <span className="text-xs font-medium text-green-400">Easy Protein Wins</span>
+                    <motion.div animate={{ rotate: proteinWinsExpanded ? 180 : 0 }} transition={{ duration: 0.2 }}>
+                      <ChevronDown size={12} className="text-muted-foreground/50 ml-auto" />
+                    </motion.div>
+                  </button>
+                  <AnimatePresence>
+                    {proteinWinsExpanded && (
+                      <motion.div
+                        initial={{ height: 0, opacity: 0 }}
+                        animate={{ height: 'auto', opacity: 1 }}
+                        exit={{ height: 0, opacity: 0 }}
+                        transition={{ duration: 0.2 }}
+                        className="overflow-hidden"
+                      >
+                        <div className="space-y-1.5">
+                          {proteinData.easyWins.map((win: string, i: number) => (
+                            <div key={i} className="flex items-start gap-2 py-1 px-2 rounded-lg bg-green-600/5">
+                              <span className="text-green-400 text-xs mt-0.5">+</span>
+                              <p className="text-xs text-muted-foreground">{win}</p>
+                            </div>
+                          ))}
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </GlassCard>
+              )}
+
+              {/* Meal-wise Recommendations */}
+              <GlassCard className="p-3">
+                <h3 className="text-xs font-medium text-muted-foreground mb-3 flex items-center gap-2">
+                  <Target size={14} className="text-blue-400" />
+                  Protein Sources by Meal
+                </h3>
+                <div className="space-y-2">
+                  {Object.entries(proteinData.mealRecommendations).map(([meal, foods]: [string, any]) => {
+                    if (!foods || foods.length === 0) return null;
+                    const isExpanded = proteinMealExpanded[meal] ?? false;
+                    const mealMeta: Record<string, { icon: string; color: string }> = {
+                      breakfast: { icon: '\u{1F305}', color: 'text-amber-400' },
+                      lunch: { icon: '\u2600\uFE0F', color: 'text-yellow-400' },
+                      dinner: { icon: '\u{1F319}', color: 'text-indigo-400' },
+                      snack: { icon: '\u{1F34E}', color: 'text-green-400' },
+                    };
+                    return (
+                      <div key={meal}>
+                        <button
+                          onClick={() => setProteinMealExpanded(p => ({ ...p, [meal]: !isExpanded }))}
+                          className="flex items-center gap-2 w-full text-left py-1"
+                        >
+                          <motion.div animate={{ rotate: isExpanded ? 180 : 0 }} transition={{ duration: 0.2 }}>
+                            <ChevronDown size={12} className={mealMeta[meal]?.color} />
+                          </motion.div>
+                          <span className={`text-xs font-medium capitalize ${mealMeta[meal]?.color}`}>{mealMeta[meal]?.icon} {meal}</span>
+                          <span className="text-[10px] text-muted-foreground/50">{proteinData.mealDistribution[meal]}g target</span>
+                        </button>
+                        <AnimatePresence>
+                          {isExpanded && (
+                            <motion.div
+                              initial={{ height: 0, opacity: 0 }}
+                              animate={{ height: 'auto', opacity: 1 }}
+                              exit={{ height: 0, opacity: 0 }}
+                              transition={{ duration: 0.2 }}
+                              className="overflow-hidden"
+                            >
+                              <div className="space-y-1.5 pl-4 pt-1">
+                                {foods.map((food: any, fi: number) => (
+                                  <div key={fi} className="flex items-center justify-between py-1.5 px-2 rounded-lg bg-accent/30">
+                                    <div className="flex-1 min-w-0">
+                                      <p className="text-xs text-foreground font-medium">{food.name}</p>
+                                      <p className="text-[10px] text-muted-foreground/60">{food.serving} · {food.frequency}</p>
+                                    </div>
+                                    <div className="flex items-center gap-3 shrink-0 ml-2">
+                                      <div className="text-right">
+                                        <p className="text-xs font-bold text-blue-400">{food.proteinG}g</p>
+                                        <p className="text-[10px] text-muted-foreground/50">{food.calories} cal</p>
+                                      </div>
+                                      <div className="flex gap-0.5">
+                                        {Array.from({ length: 5 }, (_, i) => (
+                                          <div key={i} className={`w-1 h-3 rounded-full ${i < (6 - food.affordability) ? 'bg-green-400' : 'bg-accent/30'}`} />
+                                        ))}
+                                      </div>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
+                      </div>
+                    );
+                  })}
+                </div>
+              </GlassCard>
+
+              {/* Affordable Daily Sources */}
+              <GlassCard className="p-3">
+                <button
+                  onClick={() => setProteinAffordableExpanded(!proteinAffordableExpanded)}
+                  className="flex items-center gap-2 w-full text-left mb-2"
+                >
+                  <Flame size={14} className="text-amber-400" />
+                  <span className="text-xs font-medium text-amber-400">Affordable Daily Sources</span>
+                  <span className="text-[10px] text-muted-foreground/50">{proteinData.affordableSources.length} foods</span>
+                  <motion.div animate={{ rotate: proteinAffordableExpanded ? 180 : 0 }} transition={{ duration: 0.2 }} className="ml-auto">
+                    <ChevronDown size={12} className="text-muted-foreground/50" />
+                  </motion.div>
+                </button>
+                <AnimatePresence>
+                  {proteinAffordableExpanded && (
+                    <motion.div
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: 'auto', opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      transition={{ duration: 0.2 }}
+                      className="overflow-hidden"
+                    >
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                        {proteinData.affordableSources.map((food: any, i: number) => (
+                          <div key={i} className="flex items-center justify-between py-1.5 px-2 rounded-lg bg-accent/20">
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs text-foreground">{food.name}</p>
+                              <p className="text-[10px] text-muted-foreground/50">{food.serving}</p>
+                            </div>
+                            <div className="text-right shrink-0 ml-2">
+                              <p className="text-xs font-bold text-blue-400">{food.proteinG}g</p>
+                              <p className="text-[10px] text-muted-foreground/50">{food.calories} cal</p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </GlassCard>
+
+              {/* Safety Notes */}
+              {proteinData.safetyNotes && proteinData.safetyNotes.length > 0 && (
+                <GlassCard className="p-3 border-amber-500/20">
+                  <button
+                    onClick={() => setProteinSafetyExpanded(!proteinSafetyExpanded)}
+                    className="flex items-center gap-2 w-full text-left mb-2"
+                  >
+                    <AlertCircle size={14} className="text-amber-400" />
+                    <span className="text-xs font-medium text-amber-400">Serving Limits & Safety</span>
+                    <motion.div animate={{ rotate: proteinSafetyExpanded ? 180 : 0 }} transition={{ duration: 0.2 }} className="ml-auto">
+                      <ChevronDown size={12} className="text-muted-foreground/50" />
+                    </motion.div>
+                  </button>
+                  <AnimatePresence>
+                    {proteinSafetyExpanded && (
+                      <motion.div
+                        initial={{ height: 0, opacity: 0 }}
+                        animate={{ height: 'auto', opacity: 1 }}
+                        exit={{ height: 0, opacity: 0 }}
+                        transition={{ duration: 0.2 }}
+                        className="overflow-hidden"
+                      >
+                        <div className="space-y-1.5">
+                          {proteinData.safetyNotes.map((note: any, i: number) => (
+                            <div key={i} className="flex items-start gap-2 py-1.5 px-2 rounded-lg bg-amber-600/5">
+                              <AlertCircle size={11} className="text-amber-400 shrink-0 mt-0.5" />
+                              <div>
+                                <p className="text-xs text-foreground font-medium">{note.food}</p>
+                                <p className="text-[10px] text-amber-400/80">{note.note}</p>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </GlassCard>
+              )}
+            </div>
+          )}
 
           {/* Daily Log Card (grouped by category, collapsible) */}
           {(() => {
