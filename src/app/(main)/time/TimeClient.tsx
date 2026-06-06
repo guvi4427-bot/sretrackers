@@ -668,19 +668,7 @@ export default function TimeClient() {
         </motion.div>
       )}
 
-      {activeTab === 'tomorrow' && planningInsights.length > 0 && (
-        <GlassCard className="p-3 border-purple-500/20">
-          <div className="flex items-center gap-2 mb-2">
-            <Sparkles size={14} className="text-purple-400" />
-            <span className="text-xs font-medium text-purple-400">Planning Insights</span>
-          </div>
-          <div className="space-y-1">
-            {planningInsights.map((insight, i) => (
-              <p key={i} className="text-xs text-muted-foreground">• {insight}</p>
-            ))}
-          </div>
-        </GlassCard>
-      )}
+
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList className="bg-accent border border-border w-full flex overflow-x-auto">
@@ -697,6 +685,20 @@ export default function TimeClient() {
 
         {/* Today Tab */}
         <TabsContent value="today" className="space-y-4 mt-4">
+          {planningInsights.length > 0 && (
+            <GlassCard className="p-3 border-purple-500/20">
+              <div className="flex items-center gap-2 mb-2">
+                <Sparkles size={14} className="text-purple-400" />
+                <span className="text-xs font-medium text-purple-400">Insights</span>
+              </div>
+              <div className="space-y-1">
+                {planningInsights.map((insight, i) => (
+                  <p key={i} className="text-xs text-muted-foreground">• {insight}</p>
+                ))}
+              </div>
+            </GlassCard>
+          )}
+
           <AddTaskForm defaultDate="today" today={today} tomorrow={tomorrow} filterCategory={filterCategory} onSetFilterCategory={setFilterCategory} onRefresh={refreshTab} />
 
           {/* ── Today's Scheduled Tasks ── */}
