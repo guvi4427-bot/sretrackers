@@ -1,12 +1,13 @@
 import type { Metadata } from 'next';
 import { Suspense } from 'react';
 import AIHubClient from './AIHubClient';
+import { CANONICAL_URL } from '@/lib/site-config';
 
 export const metadata: Metadata = {
   title: 'AI Hub — 5 Specialized AI Assistants for Self-Growth',
   description: 'Access 5 AI assistants: Learning AI, Fitness AI, Content AI, Time AI, and Navigator AI — all built for your personal growth journey.',
-  alternates: { canonical: 'https://sretrack.vercel.app/ai-hub' },
-  openGraph: { title: 'SRE Track AI Hub', description: 'Access 5 AI assistants: Learning AI, Fitness AI, Content AI, Time AI, and Navigator AI — all built for your personal growth journey.', url: 'https://sretrack.vercel.app/ai-hub' },
+  alternates: { canonical: `${CANONICAL_URL}/ai-hub` },
+  openGraph: { title: 'SRE Track AI Hub', description: 'Access 5 AI assistants: Learning AI, Fitness AI, Content AI, Time AI, and Navigator AI — all built for your personal growth journey.', url: `${CANONICAL_URL}/ai-hub` },
 };
 
 export default function AIHubPage() {

@@ -1,11 +1,12 @@
 import type { Metadata } from 'next';
 import { Suspense } from 'react';
 import NotificationsClient from './NotificationsClient';
+import { CANONICAL_URL } from '@/lib/site-config';
 
 export const metadata: Metadata = {
   title: 'Notifications',
   description: 'View your latest notifications on SRE Track.',
-  alternates: { canonical: 'https://sretrack.vercel.app/notifications' },
+  alternates: { canonical: `${CANONICAL_URL}/notifications` },
 };
 
 export default function NotificationsPage() {

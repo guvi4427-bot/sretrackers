@@ -1,11 +1,12 @@
 import type { Metadata } from 'next';
 import { Suspense } from 'react';
 import EntryClient from './EntryClient';
+import { CANONICAL_URL } from '@/lib/site-config';
 
 export const metadata: Metadata = {
   title: 'Learning Entry — SRE Track',
   description: 'View a learning entry detail on SRE Track.',
-  alternates: { canonical: 'https://sretrack.vercel.app/learn' },
+  alternates: { canonical: `${CANONICAL_URL}/learn` },
 };
 
 export default function EntryDetailPage() {

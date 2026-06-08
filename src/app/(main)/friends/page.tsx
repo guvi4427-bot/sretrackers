@@ -1,11 +1,12 @@
 import type { Metadata } from 'next';
 import { Suspense } from 'react';
 import FriendsClient from './FriendsClient';
+import { CANONICAL_URL } from '@/lib/site-config';
 
 export const metadata: Metadata = {
   title: 'Friends — Your Growth Circle',
   description: 'Connect with friends and build your growth circle on SRE Track.',
-  alternates: { canonical: 'https://sretrack.vercel.app/friends' },
+  alternates: { canonical: `${CANONICAL_URL}/friends` },
 };
 
 export default function FriendsPage() {

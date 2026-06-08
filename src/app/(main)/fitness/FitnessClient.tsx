@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
 import { Dumbbell, Plus, Trash2, Sparkles, Send, Bot, Loader2, Target, Flame, Utensils, Scale, Activity, Edit, Save, X, TrendingUp, ChevronLeft, ChevronDown, Video, Beef, AlertCircle, Zap } from 'lucide-react';
@@ -113,6 +113,7 @@ export default function FitnessClient() {
   const [fitnessProfile, setFitnessProfile] = useState<any>(null);
   const [foodLogs, setFoodLogs] = useState<any[]>([]);
   const [workouts, setWorkouts] = useState<any[]>([]);
+  const [allWorkouts, setAllWorkouts] = useState<any[]>([]); // All workouts for chart (no date filter)
   const [weightLogs, setWeightLogs] = useState<any[]>([]);
   const [mealName, setMealName] = useState('');
   const [mealQuantity, setMealQuantity] = useState('1');
@@ -217,6 +218,14 @@ export default function FitnessClient() {
     } catch {}
   }, []);
 
+  // Fetch all workouts for chart data (no date filter)
+  const fetchAllWorkouts = useCallback(async () => {
+    try {
+      const r = await fetch('/api/fitness/workout');
+      if (r.ok) { const d = await r.json(); setAllWorkouts(Array.isArray(d) ? d : d.workouts || []); }
+    } catch {}
+  }, []);
+
   const fetchWeights = useCallback(async () => {
     try {
       const r = await fetch('/api/fitness/weight');
@@ -259,7 +268,7 @@ export default function FitnessClient() {
   useEffect(() => {
     // Fetch primary data first (profile, today's food/workouts/weights)
     async function loadInitialData() {
-      await Promise.all([fetchProfile(), fetchFoodLogs(), fetchWorkouts(), fetchWeights(), fetchProteinRecommendations()]);
+      await Promise.all([fetchProfile(), fetchFoodLogs(), fetchWorkouts(), fetchAllWorkouts(), fetchWeights(), fetchProteinRecommendations()]);
       setDataLoaded(true);
     }
     loadInitialData();
@@ -474,6 +483,7 @@ export default function FitnessClient() {
         setWorkoutDuration(''); setEstimatedBurn(null);
         if (selectedWorkoutDate !== today) fetchWorkoutForDate(selectedWorkoutDate);
         await fetchWorkouts();
+        fetchAllWorkouts(); // Refresh chart data
         fetchUserProfile();
         window.dispatchEvent(new CustomEvent('xp-updated')); window.dispatchEvent(new CustomEvent('notification-updated'));
       }
@@ -520,6 +530,7 @@ export default function FitnessClient() {
       setWorkouts(prev => prev.filter(w => w.id !== id));
       await fetch(`/api/fitness/workout?id=${id}`, { method: 'DELETE' });
       fetchWorkouts(); // background sync
+      fetchAllWorkouts(); // refresh chart data
       fetchUserProfile();
       window.dispatchEvent(new CustomEvent('xp-updated')); window.dispatchEvent(new CustomEvent('notification-updated'));
     } catch {}
@@ -545,8 +556,17 @@ export default function FitnessClient() {
     setConversationId(null);
   }
 
-  // Workout chart data (for progress tab)
-  const workoutChartData = [...workouts, ...Object.values(workoutHistory).flat()]
+  // Workout chart data (for progress tab) — uses allWorkouts for full history
+  // Deduplicate by ID (in case of overlap with workoutHistory)
+  const allWorkoutsDeduped = useMemo(() => {
+    const map = new Map<string, any>();
+    [...allWorkouts, ...Object.values(workoutHistory).flat()].forEach((w: any) => {
+      if (w?.id) map.set(w.id, w);
+    });
+    return Array.from(map.values());
+  }, [allWorkouts, workoutHistory]);
+
+  const workoutChartData = allWorkoutsDeduped
     .reduce((acc: Record<string, number>, w: any) => {
       const d = w.date?.slice(5) || w.date;
       acc[d] = (acc[d] || 0) + (w.estimatedCalories || 0);
@@ -554,6 +574,7 @@ export default function FitnessClient() {
     }, {});
   const workoutChartArr = Object.entries(workoutChartData)
     .map(([date, calories]) => ({ date, calories }))
+    .sort((a, b) => a.date.localeCompare(b.date))
     .slice(-14);
 
   // Show loading screen until all initial data is fetched
@@ -815,18 +836,17 @@ export default function FitnessClient() {
           {/* Workout Progress Card */}
           {(() => {
             const nowDate = new Date();
-            const weekWorkouts = [...workouts, ...Object.values(workoutHistory).flat()].filter((w: any) => {
+            const weekWorkouts = allWorkoutsDeduped.filter((w: any) => {
               const d = new Date(w.date + 'T00:00:00');
               const diffDays = (nowDate.getTime() - d.getTime()) / (1000 * 60 * 60 * 24);
               return diffDays <= 7;
             });
-            const monthWorkouts = [...workouts, ...Object.values(workoutHistory).flat()].filter((w: any) => {
+            const monthWorkouts = allWorkoutsDeduped.filter((w: any) => {
               const d = new Date(w.date + 'T00:00:00');
               return d.getMonth() === nowDate.getMonth() && d.getFullYear() === nowDate.getFullYear();
             });
-            const dedupe = (arr: any[]) => Array.from(new Map(arr.map((w: any) => [w.id, w])).values());
-            const weekW = dedupe(weekWorkouts);
-            const monthW = dedupe(monthWorkouts);
+            const weekW = weekWorkouts;
+            const monthW = monthWorkouts;
             const weekCalBurned = weekW.reduce((a: number, w: any) => a + (w.estimatedCalories || 0), 0);
             const monthCalBurned = monthW.reduce((a: number, w: any) => a + (w.estimatedCalories || 0), 0);
             const weekMinTrained = weekW.reduce((a: number, w: any) => a + (w.duration || 0), 0);
@@ -1676,10 +1696,6 @@ export default function FitnessClient() {
           {(() => {
             // Only show if user has a fitness profile with calorie targets
             if (!fitnessProfile && !currentRequiredCal) return null;
-            // Deduplicate workouts by ID to prevent double-counting
-            const allWorkoutsDeduped = Array.from(
-              new Map([...workouts, ...Object.values(workoutHistory).flat()].map((w: any) => [w.id, w])).values()
-            );
             const calorieChartData = weekDates.slice().reverse().map(dateStr => {
               const logs = dateStr === today ? foodLogs : (nutritionHistory[dateStr] || []);
               const dayWorkouts = allWorkoutsDeduped.filter((w: any) => {

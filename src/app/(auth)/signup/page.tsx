@@ -1,11 +1,12 @@
 import type { Metadata } from 'next';
 import { Suspense } from 'react';
 import SignupClient from './SignupClient';
+import { CANONICAL_URL } from '@/lib/site-config';
 
 export const metadata: Metadata = {
   title: 'Sign Up — SRE Track',
   description: 'Create a free SRE Track account and start your self-growth journey today.',
-  alternates: { canonical: 'https://sretrack.vercel.app/signup' },
+  alternates: { canonical: `${CANONICAL_URL}/signup` },
 };
 
 export default function SignupPage() {

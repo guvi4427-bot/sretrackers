@@ -207,7 +207,7 @@ export async function GET(req: Request) {
       entityType: 'content_entry' as const,
     }));
 
-    // ── Fitness Updates (Workouts) ──
+    // ── Fitness Updates (Workouts — aggregated by userId + date) ──
     // Need to check shareFitnessProgress + isPublic/follower status
     const recentWorkouts = await db.fitnessWorkoutLog.findMany({
       where: {
@@ -223,22 +223,63 @@ export async function GET(req: Request) {
         },
       },
       orderBy: { createdAt: 'desc' },
-      take: limit * 2,
+      take: limit * 4, // Fetch more since we'll aggregate
     });
 
     const fitnessUpdatesFiltered = recentWorkouts
-      .filter(w => isVisible(w.userId, w.user.profile?.isPublic !== false, w.user.profile?.shareFitnessProgress === true))
+      .filter(w => isVisible(w.userId, w.user.profile?.isPublic !== false, w.user.profile?.shareFitnessProgress === true));
+
+    // Aggregate workouts by userId + date → one daily summary per user per day
+    const workoutAggregation = new Map<string, {
+      userId: string;
+      date: string;
+      workoutIds: string[];
+      workoutTypes: string[];
+      totalDuration: number;
+      totalCalories: number;
+      muscleGroups: string[];
+      user: any;
+    }>();
+
+    fitnessUpdatesFiltered.forEach(w => {
+      const key = `${w.userId}_${w.date}`;
+      if (!workoutAggregation.has(key)) {
+        workoutAggregation.set(key, {
+          userId: w.userId,
+          date: w.date,
+          workoutIds: [w.id],
+          workoutTypes: [w.workoutType],
+          totalDuration: w.duration || 0,
+          totalCalories: w.estimatedCalories || 0,
+          muscleGroups: w.muscleGroup ? [w.muscleGroup] : [],
+          user: w.user,
+        });
+      } else {
+        const agg = workoutAggregation.get(key)!;
+        agg.workoutIds.push(w.id);
+        agg.workoutTypes.push(w.workoutType);
+        agg.totalDuration += w.duration || 0;
+        agg.totalCalories += w.estimatedCalories || 0;
+        if (w.muscleGroup && !agg.muscleGroups.includes(w.muscleGroup)) {
+          agg.muscleGroups.push(w.muscleGroup);
+        }
+      }
+    });
+
+    // Take top N aggregated summaries (sorted by date desc, then createdAt)
+    const aggregatedWorkouts = Array.from(workoutAggregation.values())
+      .sort((a, b) => b.date.localeCompare(a.date))
       .slice(0, limit);
 
-    // Batch-fetch like/repost counts for workout entries
-    const workoutIds = fitnessUpdatesFiltered.map(w => w.id);
-    const workoutLikes = !isGuest && workoutIds.length > 0 ? await db.liveUpdateLike.groupBy({ by: ['entityId'], where: { entityType: 'fitness_workout', entityId: { in: workoutIds } }, _count: true }) : [];
-    const workoutReposts = !isGuest && workoutIds.length > 0 ? await db.liveUpdateRepost.groupBy({ by: ['entityId'], where: { entityType: 'fitness_workout', entityId: { in: workoutIds } }, _count: true }) : [];
-    const workoutUserLikes = !isGuest && workoutIds.length > 0 ? await db.liveUpdateLike.findMany({ where: { entityType: 'fitness_workout', entityId: { in: workoutIds }, userId: myUserId }, select: { entityId: true } }) : [];
-    const workoutUserReposts = !isGuest && workoutIds.length > 0 ? await db.liveUpdateRepost.findMany({ where: { entityType: 'fitness_workout', entityId: { in: workoutIds }, userId: myUserId }, select: { entityId: true } }) : [];
-    const workoutBookmarks = !isGuest && workoutIds.length > 0 ? await db.liveUpdateBookmark.groupBy({ by: ['entityId'], where: { entityType: 'fitness_workout', entityId: { in: workoutIds } }, _count: true }) : [];
-    const workoutUserBookmarks = !isGuest && workoutIds.length > 0 ? await db.liveUpdateBookmark.findMany({ where: { entityType: 'fitness_workout', entityId: { in: workoutIds }, userId: myUserId }, select: { entityId: true } }) : [];
-    const workoutComments = workoutIds.length > 0 ? await db.liveUpdateComment.groupBy({ by: ['entityId'], where: { entityType: 'fitness_workout', entityId: { in: workoutIds } }, _count: true }) : [];
+    // Batch-fetch like/repost counts for ALL workout IDs in the aggregated summaries
+    const allWorkoutIds = aggregatedWorkouts.flatMap(a => a.workoutIds);
+    const workoutLikes = !isGuest && allWorkoutIds.length > 0 ? await db.liveUpdateLike.groupBy({ by: ['entityId'], where: { entityType: 'fitness_workout', entityId: { in: allWorkoutIds } }, _count: true }) : [];
+    const workoutReposts = !isGuest && allWorkoutIds.length > 0 ? await db.liveUpdateRepost.groupBy({ by: ['entityId'], where: { entityType: 'fitness_workout', entityId: { in: allWorkoutIds } }, _count: true }) : [];
+    const workoutUserLikes = !isGuest && allWorkoutIds.length > 0 ? await db.liveUpdateLike.findMany({ where: { entityType: 'fitness_workout', entityId: { in: allWorkoutIds }, userId: myUserId }, select: { entityId: true } }) : [];
+    const workoutUserReposts = !isGuest && allWorkoutIds.length > 0 ? await db.liveUpdateRepost.findMany({ where: { entityType: 'fitness_workout', entityId: { in: allWorkoutIds }, userId: myUserId }, select: { entityId: true } }) : [];
+    const workoutBookmarks = !isGuest && allWorkoutIds.length > 0 ? await db.liveUpdateBookmark.groupBy({ by: ['entityId'], where: { entityType: 'fitness_workout', entityId: { in: allWorkoutIds } }, _count: true }) : [];
+    const workoutUserBookmarks = !isGuest && allWorkoutIds.length > 0 ? await db.liveUpdateBookmark.findMany({ where: { entityType: 'fitness_workout', entityId: { in: allWorkoutIds }, userId: myUserId }, select: { entityId: true } }) : [];
+    const workoutComments = allWorkoutIds.length > 0 ? await db.liveUpdateComment.groupBy({ by: ['entityId'], where: { entityType: 'fitness_workout', entityId: { in: allWorkoutIds } }, _count: true }) : [];
     const workoutCommentCountMap = new Map(workoutComments.map(c => [c.entityId, c._count]));
     const workoutLikeCountMap = new Map(workoutLikes.map(l => [l.entityId, l._count]));
     const workoutRepostCountMap = new Map(workoutReposts.map(r => [r.entityId, r._count]));
@@ -247,39 +288,50 @@ export async function GET(req: Request) {
     const workoutUserRepostSet = new Set(workoutUserReposts.map(r => r.entityId));
     const workoutUserBookmarkSet = new Set(workoutUserBookmarks.map(b => b.entityId));
 
-    const fitnessUpdates = fitnessUpdatesFiltered.map(w => {
-        const goal = goalMap.get(w.userId) || 'maintain';
+    const fitnessUpdates = aggregatedWorkouts.map(agg => {
+        const goal = goalMap.get(agg.userId) || 'maintain';
         const isGaining = goal === 'gain';
+        // Aggregate likes/reposts/comments across all workouts in this day
+        const totalLikes = agg.workoutIds.reduce((sum, id) => sum + (workoutLikeCountMap.get(id)?._count || workoutLikeCountMap.get(id) || 0), 0);
+        const totalReposts = agg.workoutIds.reduce((sum, id) => sum + (workoutRepostCountMap.get(id)?._count || workoutRepostCountMap.get(id) || 0), 0);
+        const totalBookmarks = agg.workoutIds.reduce((sum, id) => sum + (workoutBookmarkCountMap.get(id)?._count || workoutBookmarkCountMap.get(id) || 0), 0);
+        const totalComments = agg.workoutIds.reduce((sum, id) => sum + (workoutCommentCountMap.get(id)?._count || workoutCommentCountMap.get(id) || 0), 0);
+        const isLiked = agg.workoutIds.some(id => workoutUserLikeSet.has(id));
+        const isReposted = agg.workoutIds.some(id => workoutUserRepostSet.has(id));
+        const isBookmarked = agg.workoutIds.some(id => workoutUserBookmarkSet.has(id));
+        // Use the first workout ID as the primary entity ID for interactions
+        const primaryId = agg.workoutIds[0];
+        // Count unique workout types
+        const uniqueTypes = [...new Set(agg.workoutTypes)];
         return {
-          id: w.id,
+          id: primaryId,
+          workoutIds: agg.workoutIds,
           type: 'fitness' as const,
-          subType: 'workout' as const,
-          workoutType: w.workoutType,
-          duration: w.duration,
-          estimatedCalories: w.estimatedCalories,
-          muscleGroup: w.muscleGroup,
-          sets: w.sets,
-          reps: w.reps,
-          loadKg: w.loadKg,
-          date: w.date,
-          createdAt: w.createdAt,
-          isOwn: !isGuest && w.userId === myUserId,
+          subType: 'workout_summary' as const,
+          workoutCount: agg.workoutIds.length,
+          workoutTypes: uniqueTypes,
+          totalDuration: agg.totalDuration,
+          totalCalories: agg.totalCalories,
+          muscleGroups: agg.muscleGroups,
+          date: agg.date,
+          createdAt: agg.date,
+          isOwn: !isGuest && agg.userId === myUserId,
           user: {
-            id: w.user.id,
-            username: w.user.username,
-            name: (w.user as any).profile?.name || w.user.username,
-            avatarUrl: (w.user as any).profile?.avatarUrl,
-            verified: (w.user as any).profile?.verified || false,
+            id: agg.user.id,
+            username: agg.user.username,
+            name: (agg.user as any).profile?.name || agg.user.username,
+            avatarUrl: (agg.user as any).profile?.avatarUrl,
+            verified: (agg.user as any).profile?.verified || false,
             fitnessGoal: goal,
           },
           hashtags: ['fitness', isGaining ? 'gains' : 'shredding'],
-          likes: workoutLikeCountMap.get(w.id) || 0,
-          reposts: workoutRepostCountMap.get(w.id) || 0,
-          bookmarks: workoutBookmarkCountMap.get(w.id) || 0,
-          comments: workoutCommentCountMap.get(w.id) || 0,
-          isLiked: workoutUserLikeSet.has(w.id),
-          isReposted: workoutUserRepostSet.has(w.id),
-          isBookmarked: workoutUserBookmarkSet.has(w.id),
+          likes: totalLikes,
+          reposts: totalReposts,
+          bookmarks: totalBookmarks,
+          comments: totalComments,
+          isLiked,
+          isReposted,
+          isBookmarked,
           entityType: 'fitness_workout' as const,
         };
       });

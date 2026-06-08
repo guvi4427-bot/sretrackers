@@ -1,11 +1,12 @@
 import type { Metadata } from 'next';
 import { Suspense } from 'react';
 import PhaseClient from './PhaseClient';
+import { CANONICAL_URL } from '@/lib/site-config';
 
 export const metadata: Metadata = {
   title: 'Phase — SRE Track',
   description: 'View and manage your active phases on SRE Track.',
-  alternates: { canonical: 'https://sretrack.vercel.app/phase' },
+  alternates: { canonical: `${CANONICAL_URL}/phase` },
 };
 
 export default function PhaseDetailPage({ params }: { params: Promise<{ phaseId: string }> }) {

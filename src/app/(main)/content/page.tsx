@@ -1,12 +1,13 @@
 import type { Metadata } from 'next';
 import { Suspense } from 'react';
 import ContentClient from './ContentClient';
+import { CANONICAL_URL } from '@/lib/site-config';
 
 export const metadata: Metadata = {
   title: 'Content Tracker — Manage Your Creator Pipeline',
   description: 'Track your content from idea to published. Manage series, pipeline stages, and get AI script reviews on SRE Track.',
-  alternates: { canonical: 'https://sretrack.vercel.app/content' },
-  openGraph: { title: 'SRE Track Content Tracker', description: 'Track your content from idea to published. Manage series, pipeline stages, and get AI script reviews on SRE Track.', url: 'https://sretrack.vercel.app/content' },
+  alternates: { canonical: `${CANONICAL_URL}/content` },
+  openGraph: { title: 'SRE Track Content Tracker', description: 'Track your content from idea to published. Manage series, pipeline stages, and get AI script reviews on SRE Track.', url: `${CANONICAL_URL}/content` },
 };
 
 export default function ContentPage() {

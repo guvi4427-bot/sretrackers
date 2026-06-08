@@ -1,12 +1,13 @@
 import type { Metadata } from 'next';
 import { Suspense } from 'react';
 import HomeClient from './HomeClient';
+import { CANONICAL_URL } from '@/lib/site-config';
 
 export const metadata: Metadata = {
   title: 'Home — Dashboard',
   description: 'Your SRE Track dashboard with XP, streaks, achievements, and daily quests.',
-  alternates: { canonical: 'https://sretrack.vercel.app/home' },
-  openGraph: { title: 'SRE Track Dashboard', description: 'Your SRE Track dashboard with XP, streaks, achievements, and daily quests.', url: 'https://sretrack.vercel.app/home' },
+  alternates: { canonical: `${CANONICAL_URL}/home` },
+  openGraph: { title: 'SRE Track Dashboard', description: 'Your SRE Track dashboard with XP, streaks, achievements, and daily quests.', url: `${CANONICAL_URL}/home` },
 };
 
 export default function HomePage() {

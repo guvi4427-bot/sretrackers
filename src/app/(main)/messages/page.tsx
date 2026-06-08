@@ -1,11 +1,12 @@
 import type { Metadata } from 'next';
 import { Suspense } from 'react';
 import MessagesClient from './MessagesClient';
+import { CANONICAL_URL } from '@/lib/site-config';
 
 export const metadata: Metadata = {
   title: 'Messages — Direct & Group Chats',
   description: 'Chat with friends and groups on SRE Track.',
-  alternates: { canonical: 'https://sretrack.vercel.app/messages' },
+  alternates: { canonical: `${CANONICAL_URL}/messages` },
 };
 
 export default function MessagesPage() {

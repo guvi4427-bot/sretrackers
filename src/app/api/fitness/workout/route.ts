@@ -74,9 +74,11 @@ export async function GET(request: Request) {
     const where: any = { userId };
     if (date) where.date = date;
 
+    // When no date filter, order by date ascending for chart use;
+    // when filtering by date, keep newest-first for display
     const workouts = await db.fitnessWorkoutLog.findMany({
       where,
-      orderBy: { createdAt: 'desc' },
+      orderBy: date ? { createdAt: 'desc' } : { date: 'asc' },
     });
 
     return NextResponse.json({ workouts });

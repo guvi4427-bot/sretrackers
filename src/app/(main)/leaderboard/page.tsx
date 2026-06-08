@@ -1,12 +1,13 @@
 import type { Metadata } from 'next';
 import { Suspense } from 'react';
 import LeaderboardClient from './LeaderboardClient';
+import { CANONICAL_URL } from '@/lib/site-config';
 
 export const metadata: Metadata = {
   title: 'Leaderboard — Top Achievers on SRE Track',
   description: 'See the top XP earners, streak holders, and achievement leaders in the SRE Track community.',
-  alternates: { canonical: 'https://sretrack.vercel.app/leaderboard' },
-  openGraph: { title: 'SRE Track Leaderboard', description: 'See the top XP earners, streak holders, and achievement leaders in the SRE Track community.', url: 'https://sretrack.vercel.app/leaderboard' },
+  alternates: { canonical: `${CANONICAL_URL}/leaderboard` },
+  openGraph: { title: 'SRE Track Leaderboard', description: 'See the top XP earners, streak holders, and achievement leaders in the SRE Track community.', url: `${CANONICAL_URL}/leaderboard` },
 };
 
 export default function LeaderboardPage() {

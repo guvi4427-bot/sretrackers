@@ -1,11 +1,12 @@
 import type { Metadata } from 'next';
 import { Suspense } from 'react';
 import AchievementsClient from './AchievementsClient';
+import { CANONICAL_URL } from '@/lib/site-config';
 
 export const metadata: Metadata = {
   title: 'Achievements — Unlocked Badges & Milestones',
   description: 'View your unlocked achievements, badges, and milestones on SRE Track.',
-  alternates: { canonical: 'https://sretrack.vercel.app/achievements' },
+  alternates: { canonical: `${CANONICAL_URL}/achievements` },
 };
 
 export default function AchievementsPage() {

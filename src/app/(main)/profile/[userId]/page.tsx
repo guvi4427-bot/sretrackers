@@ -1,11 +1,12 @@
 import type { Metadata } from 'next';
 import { Suspense } from 'react';
 import UserProfileClient from './UserProfileClient';
+import { CANONICAL_URL } from '@/lib/site-config';
 
 export const metadata: Metadata = {
   title: 'User Profile — SRE Track',
   description: 'View user profiles, stats, and achievements on SRE Track.',
-  alternates: { canonical: 'https://sretrack.vercel.app/profile' },
+  alternates: { canonical: `${CANONICAL_URL}/profile` },
 };
 
 export default function PublicProfilePage() {

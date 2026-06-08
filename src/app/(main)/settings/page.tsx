@@ -1,11 +1,12 @@
 import type { Metadata } from 'next';
 import { Suspense } from 'react';
 import SettingsClient from './SettingsClient';
+import { CANONICAL_URL } from '@/lib/site-config';
 
 export const metadata: Metadata = {
   title: 'Settings — Account Preferences',
   description: 'Manage your account settings, notifications, and preferences on SRE Track.',
-  alternates: { canonical: 'https://sretrack.vercel.app/settings' },
+  alternates: { canonical: `${CANONICAL_URL}/settings` },
 };
 
 export default function SettingsPage() {

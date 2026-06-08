@@ -1,12 +1,13 @@
 import type { Metadata } from 'next';
 import { Suspense } from 'react';
 import LearnClient from './LearnClient';
+import { CANONICAL_URL } from '@/lib/site-config';
 
 export const metadata: Metadata = {
   title: 'Learning Tracker — Study Topics, Log Progress & AI Tutoring',
   description: 'Create study topics, log learning entries, track progress with charts, and get AI tutoring on SRE Track.',
-  alternates: { canonical: 'https://sretrack.vercel.app/learn' },
-  openGraph: { title: 'SRE Track Learning Tracker', description: 'Create study topics, log learning entries, track progress with charts, and get AI tutoring on SRE Track.', url: 'https://sretrack.vercel.app/learn' },
+  alternates: { canonical: `${CANONICAL_URL}/learn` },
+  openGraph: { title: 'SRE Track Learning Tracker', description: 'Create study topics, log learning entries, track progress with charts, and get AI tutoring on SRE Track.', url: `${CANONICAL_URL}/learn` },
 };
 
 export default function LearnPage() {

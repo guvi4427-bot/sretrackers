@@ -1,12 +1,13 @@
 import type { Metadata } from 'next';
 import { Suspense } from 'react';
 import TimeClient from './TimeClient';
+import { CANONICAL_URL } from '@/lib/site-config';
 
 export const metadata: Metadata = {
   title: 'Time Management — Focus Timer, Task Planning & AI Day Planner',
   description: 'Classify tasks smartly, run focus timers, get productivity insights, and plan your day with AI on SRE Track.',
-  alternates: { canonical: 'https://sretrack.vercel.app/time' },
-  openGraph: { title: 'SRE Track Time Management', description: 'Classify tasks smartly, run focus timers, get productivity insights, and plan your day with AI on SRE Track.', url: 'https://sretrack.vercel.app/time' },
+  alternates: { canonical: `${CANONICAL_URL}/time` },
+  openGraph: { title: 'SRE Track Time Management', description: 'Classify tasks smartly, run focus timers, get productivity insights, and plan your day with AI on SRE Track.', url: `${CANONICAL_URL}/time` },
 };
 
 export default function TimePage() {

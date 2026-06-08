@@ -1,11 +1,12 @@
 import type { Metadata } from 'next';
 import { Suspense } from 'react';
 import SharedTopicClient from './SharedTopicClient';
+import { CANONICAL_URL } from '@/lib/site-config';
 
 export const metadata: Metadata = {
   title: 'Shared Learning Topic — SRE Track',
   description: 'View a shared learning topic collection on SRE Track.',
-  alternates: { canonical: 'https://sretrack.vercel.app/shared-topic' },
+  alternates: { canonical: `${CANONICAL_URL}/shared-topic` },
 };
 
 export default function SharedTopicPage() {

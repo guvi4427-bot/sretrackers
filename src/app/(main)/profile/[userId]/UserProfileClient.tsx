@@ -525,7 +525,9 @@ export default function UserProfileClient() {
                   acc[d] = (acc[d] || 0) + (w.estimatedCalories || 0);
                   return acc;
                 }, {})
-              ).map(([date, calories]) => ({ date, calories })).slice(-14)} />
+              ).map(([date, calories]) => ({ date, calories }))
+                .sort((a, b) => a.date.localeCompare(b.date))
+                .slice(-14)} />
             </div>
           )}
           {sharedWorkouts.length > 0 && (

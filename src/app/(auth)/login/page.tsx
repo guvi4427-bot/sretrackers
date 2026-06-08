@@ -1,11 +1,12 @@
 import type { Metadata } from 'next';
 import { Suspense } from 'react';
 import LoginClient from './LoginClient';
+import { CANONICAL_URL } from '@/lib/site-config';
 
 export const metadata: Metadata = {
   title: 'Sign In — SRE Track',
   description: 'Sign in to your SRE Track account to continue your self-growth journey.',
-  alternates: { canonical: 'https://sretrack.vercel.app/login' },
+  alternates: { canonical: `${CANONICAL_URL}/login` },
 };
 
 export default function LoginPage() {

@@ -1,12 +1,13 @@
 import type { Metadata } from 'next';
 import { Suspense } from 'react';
+import { CANONICAL_URL } from '@/lib/site-config';
 import FitnessClient from './FitnessClient';
 
 export const metadata: Metadata = {
   title: 'Fitness Tracker — Log Workouts, Meals & Track Progress',
   description: 'Log workouts and meals, get AI macro and calorie estimates, and track your fitness progress with charts on SRE Track.',
-  alternates: { canonical: 'https://sretrack.vercel.app/fitness' },
-  openGraph: { title: 'SRE Track Fitness Tracker', description: 'Log workouts and meals, get AI macro and calorie estimates, and track your fitness progress with charts on SRE Track.', url: 'https://sretrack.vercel.app/fitness' },
+  alternates: { canonical: `${CANONICAL_URL}/fitness` },
+  openGraph: { title: 'SRE Track Fitness Tracker', description: 'Log workouts and meals, get AI macro and calorie estimates, and track your fitness progress with charts on SRE Track.', url: `${CANONICAL_URL}/fitness` },
 };
 
 export default function FitnessPage() {

@@ -1,12 +1,13 @@
 import type { Metadata } from 'next';
 import { Suspense } from 'react';
 import DiscoverClient from './DiscoverClient';
+import { CANONICAL_URL } from '@/lib/site-config';
 
 export const metadata: Metadata = {
   title: 'Discover — Topics, Users, Posts & Groups',
   description: 'Discover self-growth topics, connect with users, explore posts, and join groups on SRE Track.',
-  alternates: { canonical: 'https://sretrack.vercel.app/discover' },
-  openGraph: { title: 'Discover on SRE Track', description: 'Discover self-growth topics, connect with users, explore posts, and join groups on SRE Track.', url: 'https://sretrack.vercel.app/discover' },
+  alternates: { canonical: `${CANONICAL_URL}/discover` },
+  openGraph: { title: 'Discover on SRE Track', description: 'Discover self-growth topics, connect with users, explore posts, and join groups on SRE Track.', url: `${CANONICAL_URL}/discover` },
 };
 
 export default function DiscoverPage() {

@@ -1,11 +1,12 @@
 import type { Metadata } from 'next';
 import { Suspense } from 'react';
 import FollowRequestsClient from './FollowRequestsClient';
+import { CANONICAL_URL } from '@/lib/site-config';
 
 export const metadata: Metadata = {
   title: 'Follow Requests',
   description: 'Manage your follow requests on SRE Track.',
-  alternates: { canonical: 'https://sretrack.vercel.app/follow-requests' },
+  alternates: { canonical: `${CANONICAL_URL}/follow-requests` },
 };
 
 export default function FollowRequestsPage() {

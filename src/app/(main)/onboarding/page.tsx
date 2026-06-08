@@ -1,11 +1,12 @@
 import type { Metadata } from 'next';
 import { Suspense } from 'react';
 import OnboardingClient from './OnboardingClient';
+import { CANONICAL_URL } from '@/lib/site-config';
 
 export const metadata: Metadata = {
   title: 'Onboarding — Set Up Your SRE Track Profile',
   description: 'Complete your profile setup and start your self-growth journey on SRE Track.',
-  alternates: { canonical: 'https://sretrack.vercel.app/onboarding' },
+  alternates: { canonical: `${CANONICAL_URL}/onboarding` },
 };
 
 export default function OnboardingPage() {

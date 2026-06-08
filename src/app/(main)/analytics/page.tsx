@@ -1,11 +1,12 @@
 import type { Metadata } from 'next';
 import { Suspense } from 'react';
 import AnalyticsClient from './AnalyticsClient';
+import { CANONICAL_URL } from '@/lib/site-config';
 
 export const metadata: Metadata = {
   title: 'Analytics — Growth Insights & Progress Charts',
   description: 'Track your growth with detailed analytics, progress charts, and insights on SRE Track.',
-  alternates: { canonical: 'https://sretrack.vercel.app/analytics' },
+  alternates: { canonical: `${CANONICAL_URL}/analytics` },
 };
 
 export default function AnalyticsPage() {

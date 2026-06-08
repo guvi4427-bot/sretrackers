@@ -331,7 +331,8 @@ export default function FeedClient() {
   }
 
   function FitnessLiveUpdateCard({ update }: { update: any }) {
-    const isWorkout = update.subType === 'workout';
+    const isWorkout = update.subType === 'workout' || update.subType === 'workout_summary';
+    const isWorkoutSummary = update.subType === 'workout_summary';
     const isGaining = update.hashtags?.includes('gains');
     const isOwn = update.isOwn;
     const goalLabel = isGaining ? 'Gains' : 'Shredding';
@@ -389,6 +390,37 @@ export default function FeedClient() {
               </div>
 
               {isWorkout ? (
+                isWorkoutSummary ? (
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-3">
+                      <div className="flex items-center gap-1.5">
+                        <Flame size={14} className="text-red-400" />
+                        <span className="text-sm font-semibold text-foreground">{update.workoutCount} Workout{update.workoutCount > 1 ? 's' : ''}</span>
+                      </div>
+                      <span className="text-xs text-muted-foreground">{update.totalDuration} min total</span>
+                    </div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {update.workoutTypes?.map((type: string, i: number) => (
+                        <span key={i} className="text-[10px] px-1.5 py-0.5 rounded-md bg-blue-600/15 text-blue-300">{type}</span>
+                      ))}
+                    </div>
+                    <div className="flex items-center gap-4">
+                      {update.totalCalories > 0 && (
+                        <div className="flex items-center gap-1">
+                          <Zap size={12} className="text-amber-400" />
+                          <span className="text-xs text-amber-300 font-medium">{update.totalCalories} cal</span>
+                        </div>
+                      )}
+                      {update.muscleGroups?.length > 0 && (
+                        <div className="flex flex-wrap gap-1">
+                          {update.muscleGroups.map((mg: string, i: number) => (
+                            <span key={i} className="text-[10px] px-1.5 py-0.5 rounded-md bg-purple-600/15 text-purple-300">{mg}</span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ) : (
                 <div className="space-y-2">
                   <div className="flex items-center gap-3">
                     <div className="flex items-center gap-1.5">
@@ -412,6 +444,7 @@ export default function FeedClient() {
                     )}
                   </div>
                 </div>
+                )
               ) : (
                 <div className="space-y-2">
                   <div className="flex items-center gap-3">
@@ -476,7 +509,7 @@ export default function FeedClient() {
               <button onClick={() => toggleLiveUpdateLike(update.id, update.entityType || (update.subType === 'weight' ? 'fitness_weight' : 'fitness_workout'), update.isLiked || false)} className={`flex items-center gap-1 text-xs transition-colors ${update.isLiked ? 'text-rose-400' : 'text-muted-foreground/70 hover:text-rose-400'}`}><Heart size={13} fill={update.isLiked ? 'currentColor' : 'none'} />{update.likes || 0}</button>
               <button onClick={() => toggleLiveUpdateCommentSection(update.id, update.entityType || (update.subType === 'weight' ? 'fitness_weight' : 'fitness_workout'))} className="flex items-center gap-1 text-xs text-muted-foreground/70 hover:text-cyan-400 transition-colors"><MessageCircle size={13} />{update.comments || 0}</button>
               <button onClick={() => toggleLiveUpdateRepost(update.id, update.entityType || (update.subType === 'weight' ? 'fitness_weight' : 'fitness_workout'), update.isReposted || false)} className={`flex items-center gap-1 text-xs transition-colors ${update.isReposted ? 'text-green-400' : 'text-muted-foreground/70 hover:text-green-400'}`}><Repeat2 size={13} />{update.reposts || 0}</button>
-              <button onClick={() => openShareDialog({ type: 'fitness_update', id: update.id, preview: update.subType === 'weight' ? `Weight: ${update.weight}kg` : `${update.workoutType || 'Workout'} ${update.duration ? update.duration + 'min' : ''}${update.estimatedCalories ? ' ' + update.estimatedCalories + 'cal' : ''}`, userName: update.user?.name, username: update.user?.username, extra: { fitnessType: update.subType || 'workout', entityType: update.entityType || (update.subType === 'weight' ? 'fitness_weight' : 'fitness_workout') } })} className="flex items-center gap-1 text-xs text-muted-foreground/70 hover:text-blue-400 transition-colors"><Share2 size={13} /></button>
+              <button onClick={() => openShareDialog({ type: 'fitness_update', id: update.id, preview: update.subType === 'weight' ? `Weight: ${update.weight}kg` : isWorkoutSummary ? `${update.workoutCount} Workout${update.workoutCount > 1 ? 's' : ''} — ${update.totalCalories} cal` : `${update.workoutType || 'Workout'} ${update.duration ? update.duration + 'min' : ''}${update.estimatedCalories ? ' ' + update.estimatedCalories + 'cal' : ''}`, userName: update.user?.name, username: update.user?.username, extra: { fitnessType: update.subType || 'workout', entityType: update.entityType || (update.subType === 'weight' ? 'fitness_weight' : 'fitness_workout') } })} className="flex items-center gap-1 text-xs text-muted-foreground/70 hover:text-blue-400 transition-colors"><Share2 size={13} /></button>
               <button onClick={() => toggleLiveUpdateBookmark(update.id, update.entityType || (update.subType === 'weight' ? 'fitness_weight' : 'fitness_workout'), update.isBookmarked || false)} className={`flex items-center gap-1 text-xs transition-colors ${update.isBookmarked ? 'text-amber-400' : 'text-muted-foreground/70 hover:text-amber-400'}`}><Bookmark size={13} fill={update.isBookmarked ? 'currentColor' : 'none'} /></button>
               <button onClick={() => openLiveUpdateReport(update.id, update.entityType || (update.subType === 'weight' ? 'fitness_weight' : 'fitness_workout'))} className="text-muted-foreground/60 hover:text-amber-400 ml-auto transition-colors"><Flag size={12} /></button>
             </div>
@@ -768,7 +801,9 @@ export default function FeedClient() {
       acc[d] = (acc[d] || 0) + (w.estimatedCalories || 0);
       return acc;
     }, {})
-  ).map(([date, calories]) => ({ date, calories })).slice(-14);
+  ).map(([date, calories]) => ({ date, calories }))
+    .sort((a, b) => a.date.localeCompare(b.date))
+    .slice(-14);
 
   async function createPost() {
     if (isGuest) { showLoginPrompt('create posts'); return; }

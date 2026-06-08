@@ -1,12 +1,13 @@
 import type { Metadata } from 'next';
 import { Suspense } from 'react';
 import FeedClient from './FeedClient';
+import { CANONICAL_URL } from '@/lib/site-config';
 
 export const metadata: Metadata = {
   title: 'Feed — Community Progress Updates',
   description: 'See what the SRE Track community is achieving. Share progress, celebrate wins, and stay motivated together.',
-  alternates: { canonical: 'https://sretrack.vercel.app/feed' },
-  openGraph: { title: 'SRE Track Social Feed', description: 'See what the SRE Track community is achieving. Share progress, celebrate wins, and stay motivated together.', url: 'https://sretrack.vercel.app/feed' },
+  alternates: { canonical: `${CANONICAL_URL}/feed` },
+  openGraph: { title: 'SRE Track Social Feed', description: 'See what the SRE Track community is achieving. Share progress, celebrate wins, and stay motivated together.', url: `${CANONICAL_URL}/feed` },
 };
 
 export default function FeedPage() {
