@@ -292,10 +292,10 @@ export async function GET(req: Request) {
         const goal = goalMap.get(agg.userId) || 'maintain';
         const isGaining = goal === 'gain';
         // Aggregate likes/reposts/comments across all workouts in this day
-        const totalLikes = agg.workoutIds.reduce((sum, id) => sum + (Number(workoutLikeCountMap.get(id)?._count) || Number(workoutLikeCountMap.get(id)) || 0), 0);
-        const totalReposts = agg.workoutIds.reduce((sum, id) => sum + (Number(workoutRepostCountMap.get(id)?._count) || Number(workoutRepostCountMap.get(id)) || 0), 0);
-        const totalBookmarks = agg.workoutIds.reduce((sum, id) => sum + (Number(workoutBookmarkCountMap.get(id)?._count) || Number(workoutBookmarkCountMap.get(id)) || 0), 0);
-        const totalComments = agg.workoutIds.reduce((sum, id) => sum + (Number(workoutCommentCountMap.get(id)?._count) || Number(workoutCommentCountMap.get(id)) || 0), 0);
+        const totalLikes = agg.workoutIds.reduce((sum, id) => sum + (workoutLikeCountMap.get(id)?._count || workoutLikeCountMap.get(id) || 0), 0);
+        const totalReposts = agg.workoutIds.reduce((sum, id) => sum + (workoutRepostCountMap.get(id)?._count || workoutRepostCountMap.get(id) || 0), 0);
+        const totalBookmarks = agg.workoutIds.reduce((sum, id) => sum + (workoutBookmarkCountMap.get(id)?._count || workoutBookmarkCountMap.get(id) || 0), 0);
+        const totalComments = agg.workoutIds.reduce((sum, id) => sum + (workoutCommentCountMap.get(id)?._count || workoutCommentCountMap.get(id) || 0), 0);
         const isLiked = agg.workoutIds.some(id => workoutUserLikeSet.has(id));
         const isReposted = agg.workoutIds.some(id => workoutUserRepostSet.has(id));
         const isBookmarked = agg.workoutIds.some(id => workoutUserBookmarkSet.has(id));
