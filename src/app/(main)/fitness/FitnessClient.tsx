@@ -60,6 +60,32 @@ const MEAL_CATEGORY_META: Record<MealCategory, { label: string; icon: string; co
 const ACTIVITY_MULTIPLIERS: Record<string, number> = { sedentary: 1.2, light: 1.375, moderate: 1.55, active: 1.725, very_active: 1.9 };
 const GOAL_MULTIPLIERS: Record<string, number> = { lose: 0.8, maintain: 1.0, gain: 1.15 };
 
+/** Get local date string YYYY-MM-DD using user's timezone (fixes UTC midnight bug) */
+function getLocalDateStr(date?: Date): string {
+  const d = date || new Date();
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+/** Get the Sunday-to-Saturday calendar week dates for a given date */
+function getCalendarWeekDates(forDate?: Date): string[] {
+  const d = forDate || new Date();
+  const dayOfWeek = d.getDay(); // 0=Sunday, 1=Monday, ... 6=Saturday
+  const sunday = new Date(d);
+  sunday.setDate(d.getDate() - dayOfWeek); // go back to Sunday
+  const dates: string[] = [];
+  for (let i = 0; i < 7; i++) {
+    const dd = new Date(sunday);
+    dd.setDate(sunday.getDate() + i);
+    dates.push(getLocalDateStr(dd));
+  }
+  return dates; // [Sunday, Monday, ..., Saturday]
+}
+
+const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
 function calcTDEE(weight: number, height: number, age: number, gender: string, activityLevel: string): number {
   const bmr = gender === 'male' ? 10 * weight + 6.25 * height - 5 * age + 5 : 10 * weight + 6.25 * height - 5 * age - 161;
   return Math.round(bmr * (ACTIVITY_MULTIPLIERS[activityLevel] || 1.2));
@@ -120,7 +146,7 @@ export default function FitnessClient() {
   const displayHeight = (cm: number) => isImperial ? cmToIn(cm) : cm;
   const weightUnit = isImperial ? 'lbs' : 'kg';
   const heightUnit = isImperial ? 'in' : 'cm';
-  const today = new Date().toISOString().split('T')[0];
+  const today = getLocalDateStr();
   const [mealCategory, setMealCategory] = useState<MealCategory>('breakfast');
   const [selectedNutritionDate, setSelectedNutritionDate] = useState(today);
   const [nutritionHistory, setNutritionHistory] = useState<Record<string, any[]>>({});
@@ -237,15 +263,19 @@ export default function FitnessClient() {
       setDataLoaded(true);
     }
     loadInitialData();
-    // Load past 3 days of nutrition + workout history in background (deferred)
-    // Reduced from 7 to 3 days for faster load; fetch in parallel for speed
+    // Load calendar week + past 7 days of nutrition/workout history in background
     const timer = setTimeout(() => {
-      const last3 = Array.from({ length: 3 }, (_, i) => {
+      // Calendar week days (for weekly avg)
+      const calWeek = getCalendarWeekDates().filter(d => d < today);
+      // Rolling past 7 days (for "Past 7 Days" tabs — may extend beyond calendar week)
+      const rolling7 = Array.from({ length: 7 }, (_, i) => {
         const d = new Date(); d.setDate(d.getDate() - (i + 1));
-        return d.toISOString().split('T')[0];
+        return getLocalDateStr(d);
       });
-      // Fetch all 3 days in parallel to avoid sequential blocking
-      Promise.all(last3.map(async (dateStr) => {
+      // Deduplicate all dates to fetch
+      const allDates = Array.from(new Set([...calWeek, ...rolling7]));
+      // Fetch all dates in parallel
+      Promise.all(allDates.map(async (dateStr) => {
         try {
           const [foodRes, workoutRes] = await Promise.all([
             fetch(`/api/fitness/food?date=${dateStr}`),
@@ -263,7 +293,7 @@ export default function FitnessClient() {
           }
         } catch {}
       }));
-    }, 300); // Reduced delay to let primary data render first
+    }, 300);
     return () => { clearTimeout(timer); };
   }, [fetchProfile, fetchFoodLogs, fetchWorkouts, fetchWeights]);
 
@@ -276,10 +306,8 @@ export default function FitnessClient() {
   }), { calories: 0, proteinG: 0, carbsG: 0, fatG: 0, fiberG: 0 });
   const totalBurned = workouts.reduce((a: number, w: any) => a + (w.estimatedCalories || 0), 0);
 
-  const weekDates = Array.from({ length: 7 }, (_, i) => {
-    const d = new Date(); d.setDate(d.getDate() - i);
-    return d.toISOString().split('T')[0];
-  });
+  // Calendar week: Sunday → Saturday (fixed boundary, not rolling window)
+  const weekDates = getCalendarWeekDates();
 
   const weeklyData = weekDates.map(dateStr => {
     const logs = dateStr === today ? foodLogs : (nutritionHistory[dateStr] || []);
@@ -288,16 +316,21 @@ export default function FitnessClient() {
       proteinG: acc.proteinG + (f.proteinG || 0),
       carbsG:   acc.carbsG   + (f.carbsG   || 0),
       fatG:     acc.fatG     + (f.fatG     || 0),
-    }), { calories: 0, proteinG: 0, carbsG: 0, fatG: 0 });
+      fiberG:   acc.fiberG   + (f.fiberG   || 0),
+      sugarG:   acc.sugarG   + (f.sugarG   || 0),
+    }), { calories: 0, proteinG: 0, carbsG: 0, fatG: 0, fiberG: 0, sugarG: 0 });
     return { dateStr, ...totals, hasData: logs.length > 0 };
   });
 
+  // Only count days that have passed or have data (skip future days in the week)
   const daysWithData = weeklyData.filter(d => d.hasData);
   const weeklyAvg = daysWithData.length > 0 ? {
     calories: daysWithData.reduce((a, d) => a + d.calories, 0) / daysWithData.length,
     proteinG: daysWithData.reduce((a, d) => a + d.proteinG, 0) / daysWithData.length,
     carbsG:   daysWithData.reduce((a, d) => a + d.carbsG,   0) / daysWithData.length,
     fatG:     daysWithData.reduce((a, d) => a + d.fatG,     0) / daysWithData.length,
+    fiberG:   daysWithData.reduce((a, d) => a + d.fiberG,   0) / daysWithData.length,
+    sugarG:   daysWithData.reduce((a, d) => a + d.sugarG,   0) / daysWithData.length,
   } : null;
 
   // Computed values from profile form (always convert to metric for TDEE calculation)
@@ -690,7 +723,7 @@ export default function FitnessClient() {
                 </div>
                 <div className="flex items-center gap-3">
                   <span className="text-xs text-amber-400 font-medium">{weeklyAvg.calories.toFixed(0)} cal/day</span>
-                  <span className="text-[10px] text-muted-foreground">P:{weeklyAvg.proteinG.toFixed(2)}g C:{weeklyAvg.carbsG.toFixed(2)}g F:{weeklyAvg.fatG.toFixed(2)}g</span>
+                  <span className="text-[10px] text-muted-foreground">P:{weeklyAvg.proteinG.toFixed(0)}g C:{weeklyAvg.carbsG.toFixed(0)}g F:{weeklyAvg.fatG.toFixed(0)}g</span>
                   <motion.div animate={{ rotate: weeklyMacroExpanded ? 180 : 0 }} transition={{ duration: 0.2 }}>
                     <ChevronDown size={15} className="text-muted-foreground/50" />
                   </motion.div>
@@ -705,25 +738,73 @@ export default function FitnessClient() {
                     transition={{ duration: 0.2 }}
                     className="overflow-hidden"
                   >
-                    <div className="px-3 pb-3 border-t border-border/30 space-y-1 pt-2">
-                      {weeklyData.map(day => {
-                        const label = day.dateStr === today
+                    <div className="px-3 pb-3 border-t border-border/30 pt-2 space-y-1.5">
+                      {weeklyData.map((day, idx) => {
+                        const isFuture = day.dateStr > today;
+                        const dayLabel = DAY_NAMES[idx];
+                        const dateLabel = day.dateStr === today
                           ? 'Today'
-                          : new Date(day.dateStr + 'T00:00:00').toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
+                          : new Date(day.dateStr + 'T00:00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
                         return (
-                          <div key={day.dateStr} className="flex items-center justify-between py-1.5 px-2 rounded-lg bg-accent/20">
-                            <span className="text-xs text-muted-foreground w-28">{label}</span>
-                            {day.hasData ? (
-                              <div className="flex items-center gap-3">
-                                <span className="text-xs text-amber-400">{day.calories.toFixed(0)} cal</span>
-                                <span className="text-[10px] text-muted-foreground">P:{day.proteinG.toFixed(2)}g C:{day.carbsG.toFixed(2)}g F:{day.fatG.toFixed(2)}g</span>
+                          <div key={day.dateStr} className={`rounded-lg ${isFuture ? 'opacity-40' : ''} ${day.hasData ? 'bg-accent/30' : 'bg-accent/10'}`}>
+                            {/* Day header row */}
+                            <div className="flex items-center justify-between py-2 px-2.5">
+                              <div className="flex items-center gap-2">
+                                <span className="text-xs font-medium text-foreground">{dayLabel}</span>
+                                <span className="text-[10px] text-muted-foreground/60">{dateLabel}</span>
                               </div>
-                            ) : (
-                              <span className="text-[10px] text-muted-foreground/40 italic">No meals logged</span>
+                              {day.hasData ? (
+                                <span className="text-xs font-medium text-amber-400">{day.calories.toFixed(0)} cal</span>
+                              ) : isFuture ? (
+                                <span className="text-[10px] text-muted-foreground/30 italic">Upcoming</span>
+                              ) : (
+                                <span className="text-[10px] text-muted-foreground/40 italic">No meals logged</span>
+                              )}
+                            </div>
+                            {/* Macro details row (only if has data) */}
+                            {day.hasData && (
+                              <div className="flex flex-wrap gap-x-4 gap-y-0.5 px-2.5 pb-2">
+                                <span className="text-[10px] text-blue-400">Protein: {day.proteinG.toFixed(1)}g</span>
+                                <span className="text-[10px] text-amber-400">Carbs: {day.carbsG.toFixed(1)}g</span>
+                                <span className="text-[10px] text-red-400">Fat: {day.fatG.toFixed(1)}g</span>
+                                <span className="text-[10px] text-green-400">Fiber: {day.fiberG.toFixed(1)}g</span>
+                                {day.sugarG > 0 && <span className="text-[10px] text-pink-400">Sugar: {day.sugarG.toFixed(1)}g</span>}
+                              </div>
                             )}
                           </div>
                         );
                       })}
+
+                      {/* Week Summary */}
+                      <div className="mt-2 pt-2 border-t border-border/40 rounded-lg bg-gradient-to-r from-blue-600/10 to-indigo-600/10 px-2.5 py-2.5">
+                        <p className="text-[10px] text-muted-foreground/60 uppercase tracking-wider mb-1.5">Week Summary</p>
+                        <div className="grid grid-cols-3 sm:grid-cols-6 gap-x-3 gap-y-1">
+                          <div>
+                            <p className="text-xs font-bold text-blue-400">{weeklyAvg.proteinG.toFixed(0)}g</p>
+                            <p className="text-[9px] text-muted-foreground/50">Protein Avg</p>
+                          </div>
+                          <div>
+                            <p className="text-xs font-bold text-amber-400">{weeklyAvg.carbsG.toFixed(0)}g</p>
+                            <p className="text-[9px] text-muted-foreground/50">Carbs Avg</p>
+                          </div>
+                          <div>
+                            <p className="text-xs font-bold text-red-400">{weeklyAvg.fatG.toFixed(0)}g</p>
+                            <p className="text-[9px] text-muted-foreground/50">Fat Avg</p>
+                          </div>
+                          <div>
+                            <p className="text-xs font-bold text-green-400">{weeklyAvg.fiberG.toFixed(0)}g</p>
+                            <p className="text-[9px] text-muted-foreground/50">Fiber Avg</p>
+                          </div>
+                          <div>
+                            <p className="text-xs font-bold text-pink-400">{weeklyAvg.sugarG.toFixed(0)}g</p>
+                            <p className="text-[9px] text-muted-foreground/50">Sugar Avg</p>
+                          </div>
+                          <div>
+                            <p className="text-xs font-bold text-amber-300">{weeklyAvg.calories.toFixed(0)}</p>
+                            <p className="text-[9px] text-muted-foreground/50">Calories Avg</p>
+                          </div>
+                        </div>
+                      </div>
                     </div>
                   </motion.div>
                 )}
@@ -1253,7 +1334,7 @@ export default function FitnessClient() {
             <p className="text-xs text-muted-foreground/50 px-1">Past 7 Days</p>
             {Array.from({ length: 7 }, (_, i) => {
               const d = new Date(); d.setDate(d.getDate() - (i + 1));
-              return d.toISOString().split('T')[0];
+              return getLocalDateStr(d);
             }).map(dateStr => {
               const logs = nutritionHistory[dateStr] || [];
               const isExp = expandedNutritionDays[dateStr] ?? false;
@@ -1515,7 +1596,7 @@ export default function FitnessClient() {
             <p className="text-xs text-muted-foreground/50 px-1">Past 7 Days</p>
             {Array.from({ length: 7 }, (_, i) => {
               const d = new Date(); d.setDate(d.getDate() - (i + 1));
-              return d.toISOString().split('T')[0];
+              return getLocalDateStr(d);
             }).map(dateStr => {
               const logs = workoutHistory[dateStr] || [];
               const isExp = expandedWorkoutDays[dateStr] ?? false;
@@ -1603,7 +1684,7 @@ export default function FitnessClient() {
               const logs = dateStr === today ? foodLogs : (nutritionHistory[dateStr] || []);
               const dayWorkouts = allWorkoutsDeduped.filter((w: any) => {
                 if (!w.date) return false;
-                const wDate = typeof w.date === 'string' ? w.date.split('T')[0] : new Date(w.date).toISOString().split('T')[0];
+                const wDate = typeof w.date === 'string' ? w.date.split('T')[0] : getLocalDateStr(new Date(w.date));
                 return wDate === dateStr;
               });
               const consumed = logs.reduce((a: number, f: any) => a + (f.calories || 0), 0);
