@@ -178,7 +178,6 @@ export function WorkoutTimeline({
                           onEdit={onEdit}
                           onDelete={onDelete}
                           onNotesChange={onNotesChange}
-                          viewMode="timeline"
                         />
                       </motion.div>
                     ))}

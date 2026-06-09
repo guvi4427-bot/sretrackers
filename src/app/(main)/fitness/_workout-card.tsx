@@ -51,8 +51,6 @@ interface WorkoutCardProps {
   onEdit: (workout: any) => void;
   onDelete: (id: string) => void;
   onNotesChange: (id: string, notes: string) => void;
-  viewMode: 'timeline' | 'board';
-  compact?: boolean;
 }
 
 // ─── Component ───────────────────────────────────────────────────────────────
@@ -64,8 +62,6 @@ export function WorkoutCard({
   onEdit,
   onDelete,
   onNotesChange,
-  viewMode,
-  compact = false,
 }: WorkoutCardProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [editingNotes, setEditingNotes] = useState(false);
@@ -114,7 +110,7 @@ export function WorkoutCard({
   return (
     <GlassCard
       variant="default"
-      className={`relative group ${viewMode === 'board' ? 'p-3' : 'p-3 sm:p-4'}`}
+      className="relative group p-3 sm:p-4"
     >
       {/* Top row: Workout name + status + menu */}
       <div className="flex items-start justify-between gap-2 mb-2">
@@ -144,7 +140,7 @@ export function WorkoutCard({
           </div>
 
           {/* Workout type subtitle (if different from title) */}
-          {!compact && workout.workoutSplit && (
+          {workout.workoutSplit && (
             <p className="text-[10px] text-muted-foreground/50 mt-0.5 capitalize">
               {workout.workoutSplit.replace(/_/g, ' ')}
             </p>
@@ -215,50 +211,41 @@ export function WorkoutCard({
         )}
       </div>
 
-      {/* Date (shown in board view only) */}
-      {viewMode === 'board' && workout.date && (
-        <p className="text-[10px] text-muted-foreground/40 mb-1">
-          {workout.date}
-        </p>
-      )}
-
       {/* Inline Notes */}
-      {!compact && (
-        <div className="mt-1">
-          {editingNotes ? (
-            <div className="relative">
-              <textarea
-                ref={textareaRef}
-                value={noteDraft}
-                onChange={e => setNoteDraft(e.target.value)}
-                onBlur={handleNotesBlur}
-                onKeyDown={handleNotesKeyDown}
-                placeholder="Add notes..."
-                rows={2}
-                autoFocus
-                className="w-full bg-accent/30 border border-blue-500/20 rounded-lg px-2 py-1.5 text-xs text-foreground placeholder:text-muted-foreground/30 resize-none focus:outline-none focus:border-blue-500/40"
-              />
-              {saving && (
-                <span className="absolute top-1 right-2 text-[9px] text-blue-400/60">Saving...</span>
-              )}
-              <p className="text-[9px] text-muted-foreground/30 mt-0.5">
-                Ctrl+Enter to save · Esc to cancel
-              </p>
-            </div>
-          ) : (
-            <button
-              onClick={() => { setNoteDraft(workout.notes || ''); setEditingNotes(true); }}
-              className="w-full text-left text-xs text-muted-foreground/50 hover:text-muted-foreground/80 hover:bg-accent/20 rounded-lg px-2 py-1.5 -mx-2 transition-colors min-h-[24px]"
-            >
-              {workout.notes ? (
-                <span className="text-muted-foreground/70 whitespace-pre-wrap">{workout.notes}</span>
-              ) : (
-                <span className="italic">+ Add notes</span>
-              )}
-            </button>
-          )}
-        </div>
-      )}
+      <div className="mt-1">
+        {editingNotes ? (
+          <div className="relative">
+            <textarea
+              ref={textareaRef}
+              value={noteDraft}
+              onChange={e => setNoteDraft(e.target.value)}
+              onBlur={handleNotesBlur}
+              onKeyDown={handleNotesKeyDown}
+              placeholder="Add notes..."
+              rows={2}
+              autoFocus
+              className="w-full bg-accent/30 border border-blue-500/20 rounded-lg px-2 py-1.5 text-xs text-foreground placeholder:text-muted-foreground/30 resize-none focus:outline-none focus:border-blue-500/40"
+            />
+            {saving && (
+              <span className="absolute top-1 right-2 text-[9px] text-blue-400/60">Saving...</span>
+            )}
+            <p className="text-[9px] text-muted-foreground/30 mt-0.5">
+              Ctrl+Enter to save · Esc to cancel
+            </p>
+          </div>
+        ) : (
+          <button
+            onClick={() => { setNoteDraft(workout.notes || ''); setEditingNotes(true); }}
+            className="w-full text-left text-xs text-muted-foreground/50 hover:text-muted-foreground/80 hover:bg-accent/20 rounded-lg px-2 py-1.5 -mx-2 transition-colors min-h-[24px]"
+          >
+            {workout.notes ? (
+              <span className="text-muted-foreground/70 whitespace-pre-wrap">{workout.notes}</span>
+            ) : (
+              <span className="italic">+ Add notes</span>
+            )}
+          </button>
+        )}
+      </div>
     </GlassCard>
   );
 }

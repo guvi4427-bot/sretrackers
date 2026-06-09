@@ -1,13 +1,11 @@
 'use client';
 
 import { useState, useMemo, useCallback } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { LayoutList, Columns3, Dumbbell } from 'lucide-react';
+import { Dumbbell } from 'lucide-react';
 import { GlassCard } from '@/components/glass-card';
-import { WorkoutCard, WorkoutStatus, WORKOUT_STATUSES } from './_workout-card';
+import { WorkoutStatus } from './_workout-card';
 import { WorkoutFilters, FilterState, SortOption } from './_workout-filters';
 import { WorkoutTimeline, DateGroup } from './_workout-timeline';
-import { WorkoutBoard } from './_workout-board';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -63,9 +61,6 @@ export function WorkoutTracker({
   onUpdateNotes,
 }: WorkoutTrackerProps) {
   const today = getLocalDateStr();
-
-  // ── View mode ──
-  const [viewMode, setViewMode] = useState<'timeline' | 'board'>('timeline');
 
   // ── Status map (client-side only — persists during session) ──
   const [statusMap, setStatusMap] = useState<Record<string, WorkoutStatus>>({});
@@ -180,37 +175,11 @@ export function WorkoutTracker({
 
   return (
     <div className="space-y-4">
-      {/* Header: Title + View Toggle */}
+      {/* Header: Title + Summary */}
       <GlassCard variant="glowing" className="p-4">
-        <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-2">
-            <Dumbbell size={18} className="text-blue-400" />
-            <h3 className="text-sm font-semibold text-foreground">Workout Tracker</h3>
-          </div>
-
-          {/* View toggle */}
-          <div className="flex items-center bg-accent/30 rounded-lg border border-border p-0.5">
-            <button
-              onClick={() => setViewMode('timeline')}
-              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium transition-all ${
-                viewMode === 'timeline'
-                  ? 'bg-blue-600/20 text-blue-300 border border-blue-500/30'
-                  : 'text-muted-foreground/60 hover:text-foreground'
-              }`}
-            >
-              <LayoutList size={12} /> Timeline
-            </button>
-            <button
-              onClick={() => setViewMode('board')}
-              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium transition-all ${
-                viewMode === 'board'
-                  ? 'bg-blue-600/20 text-blue-300 border border-blue-500/30'
-                  : 'text-muted-foreground/60 hover:text-foreground'
-              }`}
-            >
-              <Columns3 size={12} /> Board
-            </button>
-          </div>
+        <div className="flex items-center gap-2 mb-3">
+          <Dumbbell size={18} className="text-blue-400" />
+          <h3 className="text-sm font-semibold text-foreground">Workout Tracker</h3>
         </div>
 
         {/* Summary stats */}
@@ -248,48 +217,18 @@ export function WorkoutTracker({
         filteredCount={filteredWorkouts.length}
       />
 
-      {/* View Content */}
-      <AnimatePresence mode="wait">
-        {viewMode === 'timeline' ? (
-          <motion.div
-            key="timeline"
-            initial={{ opacity: 0, x: -10 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: 10 }}
-            transition={{ duration: 0.2 }}
-          >
-            <WorkoutTimeline
-              groups={dateGroups}
-              statusMap={statusMap}
-              expandedGroups={expandedGroups}
-              onToggleGroup={handleToggleGroup}
-              onStatusChange={handleStatusChange}
-              onEdit={onEditWorkout}
-              onDelete={onDeleteWorkout}
-              onNotesChange={onUpdateNotes}
-              onAddWorkout={onAddWorkout}
-            />
-          </motion.div>
-        ) : (
-          <motion.div
-            key="board"
-            initial={{ opacity: 0, x: 10 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -10 }}
-            transition={{ duration: 0.2 }}
-          >
-            <WorkoutBoard
-              workouts={filteredWorkouts}
-              statusMap={statusMap}
-              onStatusChange={handleStatusChange}
-              onEdit={onEditWorkout}
-              onDelete={onDeleteWorkout}
-              onNotesChange={onUpdateNotes}
-            />
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {/* Timeline View */}
+      <WorkoutTimeline
+        groups={dateGroups}
+        statusMap={statusMap}
+        expandedGroups={expandedGroups}
+        onToggleGroup={handleToggleGroup}
+        onStatusChange={handleStatusChange}
+        onEdit={onEditWorkout}
+        onDelete={onDeleteWorkout}
+        onNotesChange={onUpdateNotes}
+        onAddWorkout={onAddWorkout}
+      />
     </div>
   );
 }
-// Workout Tracker: Notion-inspired Timeline + Board views deployed
