@@ -185,6 +185,9 @@ export default function FitnessClient() {
   const [restTimerSeconds, setRestTimerSeconds] = useState(90);
   const [restTimerRunning, setRestTimerRunning] = useState(false);
   const restTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [workoutStartTime, setWorkoutStartTime] = useState<number | null>(null);
+  const [workoutElapsed, setWorkoutElapsed] = useState(0);
+  const [showWorkoutSuccess, setShowWorkoutSuccess] = useState(false);
 
   // Tomorrow's planned workout state
   const [tomorrowWorkoutPlans, setTomorrowWorkoutPlans] = useState<any[]>([]);
@@ -343,6 +346,46 @@ export default function FitnessClient() {
     return () => { if (restTimerRef.current) clearInterval(restTimerRef.current); };
   }, [restTimerRunning]);
 
+  // Workout elapsed time tracker
+  useEffect(() => {
+    if (!workoutStartTime) return;
+    const interval = setInterval(() => {
+      setWorkoutElapsed(Math.floor((Date.now() - workoutStartTime) / 1000));
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [workoutStartTime]);
+
+  // Midnight migration: auto-create workouts from tomorrowWorkoutPlans
+  useEffect(() => {
+    const now = new Date();
+    const msUntilMidnight = ((24 - now.getHours()) * 60 - now.getMinutes()) * 60000 - now.getSeconds() * 1000;
+    const timeout = setTimeout(async () => {
+      if (tomorrowWorkoutPlans.length > 0) {
+        for (const plan of tomorrowWorkoutPlans) {
+          try {
+            await fetch('/api/fitness/workout', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                workoutType: plan.type,
+                duration: 0,
+                estimatedCalories: 0,
+                date: getLocalDateStr(),
+                muscleGroup: plan.muscleGroup || undefined,
+                notes: '[PLANNED]',
+              }),
+            });
+          } catch {}
+        }
+        setTomorrowWorkoutPlans([]);
+        fetchWorkouts();
+        fetchAllWorkouts();
+        toast.success('Planned workouts migrated to today!');
+      }
+    }, msUntilMidnight + 2000);
+    return () => clearTimeout(timeout);
+  }, [tomorrowWorkoutPlans, fetchWorkouts]);
+
   const totalMacros = foodLogs.reduce((acc: any, f: any) => ({
     calories: acc.calories + (f.calories || 0),
     proteinG: acc.proteinG + (f.proteinG || 0),
@@ -498,6 +541,9 @@ export default function FitnessClient() {
       ? (isImperial ? lbsToKg(parseFloat(lastSet.weight)) : parseFloat(lastSet.weight)) || undefined
       : undefined;
 
+    // Show success animation first
+    setShowWorkoutSuccess(true);
+
     try {
       const r = await fetch('/api/fitness/workout', {
         method: 'POST',
@@ -521,23 +567,33 @@ export default function FitnessClient() {
           setWorkouts(prev => [newWorkout, ...prev]);
         }
         toast.success(`+15 ${t('xp.earned')}`);
-        setWorkoutStep('type');
-        setSelectedWorkoutType('');
-        setMuscleGroup('chest');
-        setWorkoutSets(''); setWorkoutReps(''); setWorkoutLoad('');
-        setWorkoutDuration(''); setEstimatedBurn(null);
-        // Reset Hevy-style form state
-        setExerciseName('');
-        setExerciseSets([{ weight: '', reps: '', done: false }]);
-        setWorkoutNotes('');
-        setRestTimerSeconds(90); setRestTimerRunning(false);
+        // Delayed reset after success animation
+        setTimeout(() => {
+          setWorkoutStep('type');
+          setSelectedWorkoutType('');
+          setMuscleGroup('chest');
+          setWorkoutSets(''); setWorkoutReps(''); setWorkoutLoad('');
+          setWorkoutDuration(''); setEstimatedBurn(null);
+          // Reset Hevy-style form state
+          setExerciseName('');
+          setExerciseSets([{ weight: '', reps: '', done: false }]);
+          setWorkoutNotes('');
+          setRestTimerSeconds(90); setRestTimerRunning(false);
+          setWorkoutStartTime(null);
+          setWorkoutElapsed(0);
+          setShowWorkoutSuccess(false);
+        }, 1500);
         if (selectedWorkoutDate !== today) fetchWorkoutForDate(selectedWorkoutDate);
         await fetchWorkouts();
         fetchAllWorkouts(); // Refresh chart data
         fetchUserProfile();
         window.dispatchEvent(new CustomEvent('xp-updated')); window.dispatchEvent(new CustomEvent('notification-updated'));
+      } else {
+        setShowWorkoutSuccess(false);
       }
-    } catch {}
+    } catch {
+      setShowWorkoutSuccess(false);
+    }
   }
 
   async function addWeight() {
@@ -1543,8 +1599,9 @@ export default function FitnessClient() {
               {/* Workout type grid */}
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                 {WEIGHT_TYPES.map(type => (
-                  <button
+                  <motion.button
                     key={type}
+                    whileHover={{ scale: 1.02 }}
                     onClick={() => {
                       setSelectedWorkoutType(type);
                       setExerciseName(type === 'Weight Training' ? '' : type);
@@ -1554,6 +1611,8 @@ export default function FitnessClient() {
                       setEstimatedBurn(null);
                       setRestTimerSeconds(90);
                       setRestTimerRunning(false);
+                      setWorkoutStartTime(Date.now());
+                      setWorkoutElapsed(0);
                     }}
                     className="p-3 rounded-xl bg-accent border border-border hover:border-blue-500/40 hover:bg-blue-600/10 transition-all text-left"
                   >
@@ -1561,7 +1620,7 @@ export default function FitnessClient() {
                     {type === 'Weight Training' && (
                       <p className="text-[10px] text-blue-400 mt-0.5">Sets · Reps · Load</p>
                     )}
-                  </button>
+                  </motion.button>
                 ))}
               </div>
             </GlassCard>
@@ -1582,6 +1641,53 @@ export default function FitnessClient() {
                   <Clock size={12} />
                   {selectedWorkoutDate === today ? 'Today' : selectedWorkoutDate}
                 </span>
+              </div>
+
+              {/* Workout Summary Card */}
+              <div className="grid grid-cols-3 gap-2 mb-4">
+                <div className="text-center p-2 rounded-lg bg-blue-500/10 border border-blue-500/20">
+                  <p className="text-sm font-bold text-blue-400">{exerciseSets.filter(s => s.done).length}<span className="text-muted-foreground/50 text-xs">/{exerciseSets.length}</span></p>
+                  <p className="text-[9px] text-muted-foreground/50">Sets Done</p>
+                </div>
+                <div className="text-center p-2 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
+                  <p className="text-sm font-bold text-emerald-400">{(() => {
+                    const vol = exerciseSets.reduce((sum, s) => {
+                      const w = parseFloat(s.weight) || 0;
+                      const r = parseInt(s.reps) || 0;
+                      return sum + (s.done ? w * r : 0);
+                    }, 0);
+                    return vol >= 1000 ? `${(vol / 1000).toFixed(1)}k` : vol.toFixed(0);
+                  })()}</p>
+                  <p className="text-[9px] text-muted-foreground/50">Volume ({weightUnit})</p>
+                </div>
+                <div className="text-center p-2 rounded-lg bg-amber-500/10 border border-amber-500/20">
+                  <p className="text-sm font-bold text-amber-400">{workoutStartTime ? `${Math.floor(workoutElapsed / 60)}:${String(workoutElapsed % 60).padStart(2, '0')}` : '0:00'}</p>
+                  <p className="text-[9px] text-muted-foreground/50">Elapsed</p>
+                </div>
+              </div>
+
+              {/* Discard Workout button */}
+              <div className="mb-4">
+                <Button
+                  onClick={() => {
+                    setWorkoutStep('type');
+                    setSelectedWorkoutType('');
+                    setExerciseName('');
+                    setExerciseSets([{ weight: '', reps: '', done: false }]);
+                    setWorkoutNotes('');
+                    setWorkoutDuration('');
+                    setEstimatedBurn(null);
+                    setRestTimerSeconds(90);
+                    setRestTimerRunning(false);
+                    setWorkoutStartTime(null);
+                    setWorkoutElapsed(0);
+                  }}
+                  variant="ghost"
+                  size="sm"
+                  className="text-red-400/60 hover:text-red-400 hover:bg-red-500/10 text-xs w-full border border-red-500/10"
+                >
+                  <Trash2 size={12} className="mr-1" /> Discard Workout
+                </Button>
               </div>
 
               {/* Exercise name input */}
@@ -1753,60 +1859,101 @@ export default function FitnessClient() {
               </Button>
 
               {/* Finish Workout button */}
-              <button
+              <motion.button
                 onClick={addWorkout}
                 disabled={!workoutDuration}
+                whileTap={{ scale: 0.97 }}
                 className="w-full py-3.5 rounded-xl font-bold text-base text-white bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 transition-all shadow-lg shadow-blue-600/25 disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
-                <Star size={18} className="fill-current" />
-                FINISH WORKOUT
-                <Star size={18} className="fill-current" />
-              </button>
+                {showWorkoutSuccess ? (
+                  <>
+                    <motion.div
+                      initial={{ scale: 0, rotate: -180 }}
+                      animate={{ scale: 1, rotate: 0 }}
+                      transition={{ type: 'spring', stiffness: 200, damping: 15 }}
+                    >
+                      <Check size={18} className="text-emerald-300" />
+                    </motion.div>
+                    <motion.span
+                      initial={{ opacity: 0, x: 10 }}
+                      animate={{ opacity: 1, x: 0 }}
+                    >
+                      WORKOUT SAVED!
+                    </motion.span>
+                  </>
+                ) : (
+                  <>
+                    <Star size={18} className="fill-current" />
+                    FINISH WORKOUT
+                    <Star size={18} className="fill-current" />
+                  </>
+                )}
+              </motion.button>
 
-              {/* Rest Timer */}
-              <div className="mt-4 p-3 rounded-xl bg-accent/30 border border-border/30">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-xs text-muted-foreground flex items-center gap-1.5">
-                    <Timer size={13} className="text-blue-400" /> Rest Timer
-                  </span>
-                  <span className={`text-lg font-mono font-bold ${
-                    restTimerSeconds === 0 ? 'text-emerald-400' : restTimerRunning ? 'text-amber-400' : 'text-muted-foreground'
-                  }`}>
-                    {Math.floor(restTimerSeconds / 60)}:{String(restTimerSeconds % 60).padStart(2, '0')}
-                  </span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => setRestTimerRunning(!restTimerRunning)}
-                    className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                      restTimerRunning
-                        ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
-                        : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
-                    }`}
-                  >
-                    {restTimerRunning ? <Pause size={12} /> : <Play size={12} />}
-                    {restTimerRunning ? 'Pause' : 'Start'}
-                  </button>
-                  <button
-                    onClick={() => { setRestTimerSeconds(90); setRestTimerRunning(false); }}
-                    className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium bg-accent border border-border text-muted-foreground hover:text-foreground transition-all"
-                  >
-                    <RotateCcw size={12} /> Reset
-                  </button>
-                  <div className="flex gap-1 ml-auto">
-                    {[60, 90, 120, 180].map(sec => (
+              {/* Rest Timer — Prominent with circular progress */}
+              <div className="mt-4 p-4 rounded-xl bg-accent/30 border border-border/30">
+                <div className="flex items-center gap-4">
+                  {/* Circular progress indicator */}
+                  <div className="relative w-16 h-16 shrink-0">
+                    <svg className="w-16 h-16 -rotate-90" viewBox="0 0 64 64">
+                      <circle cx="32" cy="32" r="28" fill="none" stroke="currentColor" strokeWidth="3" className="text-accent/50" />
+                      <circle
+                        cx="32" cy="32" r="28" fill="none"
+                        stroke={restTimerRunning ? (restTimerSeconds === 0 ? '#34d399' : '#fbbf24') : '#64748b'}
+                        strokeWidth="3"
+                        strokeLinecap="round"
+                        strokeDasharray={`${2 * Math.PI * 28}`}
+                        strokeDashoffset={`${2 * Math.PI * 28 * (1 - (restTimerRunning || restTimerSeconds > 0 ? restTimerSeconds / 90 : 0))}`}
+                        className="transition-all duration-1000"
+                      />
+                    </svg>
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <span className={`text-sm font-mono font-bold ${
+                        restTimerSeconds === 0 ? 'text-emerald-400' : restTimerRunning ? 'text-amber-400' : 'text-muted-foreground'
+                      }`}>
+                        {Math.floor(restTimerSeconds / 60)}:{String(restTimerSeconds % 60).padStart(2, '0')}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="flex-1 space-y-2">
+                    <span className="text-xs text-muted-foreground flex items-center gap-1.5">
+                      <Timer size={13} className="text-blue-400" /> Rest Timer
+                    </span>
+                    <div className="flex items-center gap-2 flex-wrap">
                       <button
-                        key={sec}
-                        onClick={() => { setRestTimerSeconds(sec); setRestTimerRunning(false); }}
-                        className={`px-2 py-1 rounded text-[10px] transition-all ${
-                          restTimerSeconds === sec && !restTimerRunning
-                            ? 'bg-blue-600/20 text-blue-300 border border-blue-500/30'
-                            : 'bg-accent/50 text-muted-foreground/50 hover:text-muted-foreground'
+                        onClick={() => setRestTimerRunning(!restTimerRunning)}
+                        className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                          restTimerRunning
+                            ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+                            : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
                         }`}
                       >
-                        {sec}s
+                        {restTimerRunning ? <Pause size={12} /> : <Play size={12} />}
+                        {restTimerRunning ? 'Pause' : 'Start'}
                       </button>
-                    ))}
+                      <button
+                        onClick={() => { setRestTimerSeconds(90); setRestTimerRunning(false); }}
+                        className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium bg-accent border border-border text-muted-foreground hover:text-foreground transition-all"
+                      >
+                        <RotateCcw size={12} /> Reset
+                      </button>
+                    </div>
+                    <div className="flex gap-1">
+                      {[60, 90, 120, 180].map(sec => (
+                        <button
+                          key={sec}
+                          onClick={() => { setRestTimerSeconds(sec); setRestTimerRunning(false); }}
+                          className={`px-2 py-1 rounded text-[10px] transition-all ${
+                            restTimerSeconds === sec && !restTimerRunning
+                              ? 'bg-blue-600/20 text-blue-300 border border-blue-500/30'
+                              : 'bg-accent/50 text-muted-foreground/50 hover:text-muted-foreground'
+                          }`}
+                        >
+                          {sec}s
+                        </button>
+                      ))}
+                    </div>
                   </div>
                 </div>
               </div>

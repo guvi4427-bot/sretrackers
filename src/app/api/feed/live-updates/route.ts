@@ -381,7 +381,15 @@ export async function GET(req: Request) {
       });
     }
 
-    const weightUpdates = visibleWeightLogs.slice(0, limit);
+    // Deduplicate: only the latest weight log per user
+    const latestWeightByUser = new Map<string, any>();
+    visibleWeightLogs.forEach(w => {
+      if (!latestWeightByUser.has(w.userId)) {
+        latestWeightByUser.set(w.userId, w);
+      }
+      // visibleWeightLogs is already sorted by createdAt desc, so first entry is latest
+    });
+    const weightUpdates = Array.from(latestWeightByUser.values()).slice(0, limit);
 
     // Batch-fetch like/repost counts for weight entries
     const weightIds = weightUpdates.map(w => w.id);

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useMemo, useCallback } from 'react';
+import { motion } from 'framer-motion';
 import { Dumbbell } from 'lucide-react';
 import { GlassCard } from '@/components/glass-card';
 import { WorkoutStatus } from './_workout-card';
@@ -63,7 +64,19 @@ export function WorkoutTracker({
   const today = getLocalDateStr();
 
   // ── Status map (client-side only — persists during session) ──
+  // Workouts with [PLANNED] in notes default to 'planned', otherwise 'done'
   const [statusMap, setStatusMap] = useState<Record<string, WorkoutStatus>>({});
+
+  // Initialize status for workouts that have [PLANNED] in notes
+  const initializedStatusMap = useMemo(() => {
+    const map = { ...statusMap };
+    workouts.forEach(w => {
+      if (!map[w.id] && w.notes && typeof w.notes === 'string' && w.notes.includes('[PLANNED]')) {
+        map[w.id] = 'planned';
+      }
+    });
+    return map;
+  }, [statusMap, workouts]);
 
   // ── Expanded groups ──
   const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({});
@@ -103,7 +116,7 @@ export function WorkoutTracker({
 
     // Status filter
     if (filters.status !== 'all') {
-      result = result.filter(w => (statusMap[w.id] || 'done') === filters.status);
+      result = result.filter(w => (initializedStatusMap[w.id] || 'done') === filters.status);
     }
 
     // Date range filter
@@ -132,7 +145,7 @@ export function WorkoutTracker({
     }
 
     return result;
-  }, [workouts, filters, sort, statusMap]);
+  }, [workouts, filters, sort, initializedStatusMap]);
 
   // ── Group by date for timeline ──
   const dateGroups: DateGroup[] = useMemo(() => {
@@ -184,26 +197,23 @@ export function WorkoutTracker({
 
         {/* Summary stats */}
         <div className="grid grid-cols-4 gap-2">
-          <div className="text-center p-1.5 rounded-lg bg-accent/20">
-            <p className="text-xs font-bold text-foreground">{summaryStats.totalWorkouts}</p>
-            <p className="text-[9px] text-muted-foreground/50">Workouts</p>
-          </div>
-          <div className="text-center p-1.5 rounded-lg bg-accent/20">
-            <p className="text-xs font-bold text-foreground">{summaryStats.uniqueDays}</p>
-            <p className="text-[9px] text-muted-foreground/50">Days</p>
-          </div>
-          <div className="text-center p-1.5 rounded-lg bg-accent/20">
-            <p className="text-xs font-bold text-amber-400">{Math.round(summaryStats.totalCal)}</p>
-            <p className="text-[9px] text-muted-foreground/50">Cal Burned</p>
-          </div>
-          <div className="text-center p-1.5 rounded-lg bg-accent/20">
-            <p className="text-xs font-bold text-blue-400">
-              {summaryStats.totalMin >= 60
-                ? `${Math.floor(summaryStats.totalMin / 60)}h ${summaryStats.totalMin % 60}m`
-                : `${summaryStats.totalMin}m`}
-            </p>
-            <p className="text-[9px] text-muted-foreground/50">Duration</p>
-          </div>
+          {[
+            { value: summaryStats.totalWorkouts, label: 'Workouts', color: 'text-foreground' },
+            { value: summaryStats.uniqueDays, label: 'Days', color: 'text-foreground' },
+            { value: Math.round(summaryStats.totalCal), label: 'Cal Burned', color: 'text-amber-400' },
+            { value: summaryStats.totalMin >= 60 ? `${Math.floor(summaryStats.totalMin / 60)}h ${summaryStats.totalMin % 60}m` : `${summaryStats.totalMin}m`, label: 'Duration', color: 'text-blue-400' },
+          ].map((stat, i) => (
+            <motion.div
+              key={stat.label}
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: i * 0.08, duration: 0.35 }}
+              className="text-center p-1.5 rounded-lg bg-accent/20"
+            >
+              <p className={`text-xs font-bold ${stat.color}`}>{stat.value}</p>
+              <p className="text-[9px] text-muted-foreground/50">{stat.label}</p>
+            </motion.div>
+          ))}
         </div>
       </GlassCard>
 
@@ -220,7 +230,7 @@ export function WorkoutTracker({
       {/* Timeline View */}
       <WorkoutTimeline
         groups={dateGroups}
-        statusMap={statusMap}
+        statusMap={initializedStatusMap}
         expandedGroups={expandedGroups}
         onToggleGroup={handleToggleGroup}
         onStatusChange={handleStatusChange}

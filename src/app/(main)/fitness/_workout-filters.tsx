@@ -93,7 +93,7 @@ export function WorkoutFilters({
             <button
               key={mg}
               onClick={() => updateFilter('muscleGroup', mg)}
-              className={`px-2 py-0.5 rounded-full text-[10px] font-medium border transition-all whitespace-nowrap ${
+              className={`px-2 py-0.5 min-h-[28px] rounded-full text-[10px] font-medium border transition-all whitespace-nowrap ${
                 filters.muscleGroup === mg
                   ? 'bg-blue-500/20 border-blue-500/40 text-blue-300'
                   : 'bg-accent/30 border-border text-muted-foreground/60 hover:border-blue-500/20'
@@ -112,7 +112,7 @@ export function WorkoutFilters({
             <button
               key={s}
               onClick={() => updateFilter('status', s)}
-              className={`px-2 py-0.5 rounded-full text-[10px] font-medium border transition-all whitespace-nowrap ${
+              className={`px-2 py-0.5 min-h-[28px] rounded-full text-[10px] font-medium border transition-all whitespace-nowrap ${
                 filters.status === s
                   ? 'bg-blue-500/20 border-blue-500/40 text-blue-300'
                   : 'bg-accent/30 border-border text-muted-foreground/60 hover:border-blue-500/20'
@@ -130,7 +130,7 @@ export function WorkoutFilters({
           <button
             key={dr}
             onClick={() => updateFilter('dateRange', dr)}
-            className={`px-2 py-0.5 rounded-full text-[10px] font-medium border transition-all whitespace-nowrap shrink-0 ${
+            className={`px-2 py-0.5 min-h-[28px] rounded-full text-[10px] font-medium border transition-all whitespace-nowrap shrink-0 ${
               filters.dateRange === dr
                 ? 'bg-blue-500/20 border-blue-500/40 text-blue-300'
                 : 'bg-accent/30 border-border text-muted-foreground/60 hover:border-blue-500/20'
@@ -146,7 +146,7 @@ export function WorkoutFilters({
             initial={{ opacity: 0, scale: 0.8 }}
             animate={{ opacity: 1, scale: 1 }}
             onClick={clearFilters}
-            className="shrink-0 p-0.5 rounded-full bg-red-500/10 border border-red-500/20 text-red-400 hover:bg-red-500/20 transition-colors"
+            className="shrink-0 p-0.5 min-h-[28px] min-w-[28px] flex items-center justify-center rounded-full bg-red-500/10 border border-red-500/20 text-red-400 hover:bg-red-500/20 transition-colors"
           >
             <X size={11} />
           </motion.button>

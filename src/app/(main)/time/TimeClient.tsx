@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
-import { Plus, Trash2, Sparkles, Check, Play, Pause, RotateCcw, Send, Bot, Loader2, ChevronDown, Moon, MessageSquare, AlertTriangle, CircleDashed, X } from 'lucide-react';
+import { Plus, Trash2, Sparkles, Check, Play, Pause, RotateCcw, Send, Bot, Loader2, ChevronDown, Moon, MessageSquare, AlertTriangle, CircleDashed, X, SkipForward, Clock } from 'lucide-react';
 import { GlassCard } from '@/components/glass-card';
 import { AIMessage } from '@/components/ai-message';
 import { SelectPill } from '@/components/select-pill';
@@ -53,8 +53,10 @@ function getLocalDateStr(offsetDays = 0): string {
 
 function StatusIcon({ status }: { status: string }) {
   if (status === 'completed') return <Check size={12} className="text-white" />;
+  if (status === 'in_progress') return <Play size={10} className="text-blue-400" />;
   if (status === 'partially_completed') return <CircleDashed size={12} className="text-amber-400" />;
   if (status === 'missed') return <AlertTriangle size={12} className="text-red-400" />;
+  if (status === 'skipped') return <SkipForward size={12} className="text-zinc-400" />;
   return null;
 }
 
@@ -65,6 +67,7 @@ function StatusBadge({ status }: { status: string }) {
     completed: 'bg-green-600/20 text-green-400',
     partially_completed: 'bg-amber-600/20 text-amber-400',
     missed: 'bg-red-600/20 text-red-400',
+    skipped: 'bg-zinc-600/20 text-zinc-400',
   };
   const labels: Record<string, string> = {
     pending: 'Pending',
@@ -72,6 +75,7 @@ function StatusBadge({ status }: { status: string }) {
     completed: 'Done',
     partially_completed: 'Partial',
     missed: 'Missed',
+    skipped: 'Skipped',
   };
   return <span className={`text-[10px] px-2 py-0.5 rounded-full ${styles[status] || styles.pending}`}>{labels[status] || status}</span>;
 }
@@ -90,8 +94,27 @@ function TaskCard({ task, currentTab, onToggleTask, onUpdateTaskStatus, onDelete
   const isDone = task.status === 'completed';
   const isMissed = task.status === 'missed';
   const isPartial = task.status === 'partially_completed';
+  const isSkipped = task.status === 'skipped';
+  const isInProgress = task.status === 'in_progress';
   const [showReflection, setShowReflection] = useState(false);
   const [localReflection, setLocalReflection] = useState(task.reflectionNote || '');
+  const [elapsedMin, setElapsedMin] = useState<number | null>(null);
+
+  // Elapsed time for in-progress tasks with fromTime
+  useEffect(() => {
+    if (!isInProgress || !task.fromTime) return;
+    const calcElapsed = () => {
+      const now = new Date();
+      const [h, m] = task.fromTime.split(':').map(Number);
+      const start = new Date(now);
+      start.setHours(h, m, 0, 0);
+      const diffMin = Math.max(0, Math.round((now.getTime() - start.getTime()) / 60000));
+      setElapsedMin(diffMin);
+    };
+    calcElapsed();
+    const interval = setInterval(calcElapsed, 60000);
+    return () => clearInterval(interval);
+  }, [isInProgress, task.fromTime]);
 
   async function saveLocalReflection() {
     if (!localReflection.trim()) { setShowReflection(false); return; }
@@ -107,23 +130,30 @@ function TaskCard({ task, currentTab, onToggleTask, onUpdateTaskStatus, onDelete
   }
 
   return (
-    <GlassCard className={`p-3 ${isDone ? 'opacity-60' : ''} ${isMissed ? 'border-red-500/30' : ''} ${isPartial ? 'border-amber-500/30' : ''}`}>
+    <GlassCard className={`p-3 ${isDone ? 'opacity-60' : ''} ${isMissed ? 'border-red-500/30' : ''} ${isPartial ? 'border-amber-500/30' : ''} ${isSkipped ? 'opacity-50' : ''}`}>
       <div className="flex items-center gap-3">
         <button
           onClick={() => onToggleTask(task.id, task.status, currentTab)}
           className={`w-5 h-5 rounded-full border shrink-0 flex items-center justify-center ${
             isDone ? 'bg-green-500 border-green-500' :
+            isInProgress ? 'bg-blue-500/30 border-blue-500' :
             isMissed ? 'bg-red-500/30 border-red-500' :
             isPartial ? 'bg-amber-500/30 border-amber-500' :
+            isSkipped ? 'bg-zinc-500/20 border-zinc-500' :
             'border-border'
           }`}
         >
           <StatusIcon status={task.status} />
         </button>
         <div className="flex-1 min-w-0">
-          <p className={`text-sm ${isDone ? 'line-through text-muted-foreground/50' : isMissed ? 'text-muted-foreground/60' : 'text-foreground'}`}>{task.title}</p>
+          <p className={`text-sm ${isDone ? 'line-through text-muted-foreground/50' : isMissed || isSkipped ? 'text-muted-foreground/60' : 'text-foreground'}`}>{task.title}</p>
           <div className="flex items-center gap-2 mt-1 flex-wrap">
             {task.fromTime && task.toTime && <span className="text-[10px] text-blue-400">{formatTime(task.fromTime)} - {formatTime(task.toTime)}</span>}
+            {isInProgress && elapsedMin !== null && (
+              <span className="text-[10px] text-blue-400 flex items-center gap-0.5">
+                <Clock size={8} /> {elapsedMin}m elapsed
+              </span>
+            )}
             <StatusBadge status={task.status} />
             {task.isProductive ? (
               <span className="text-[10px] px-2 py-0.5 rounded-full bg-green-600/20 text-green-400">Productive</span>
@@ -552,11 +582,17 @@ export default function TimeClient() {
   }
 
   async function toggleTask(taskId: string, currentStatus: string, currentTab: 'today' | 'tomorrow') {
-    if (currentStatus === 'completed') {
-      await updateTaskStatus(taskId, 'pending', currentTab);
-    } else {
-      await updateTaskStatus(taskId, 'completed', currentTab);
-    }
+    // Cycle through: Pending → In Progress → Done → Skipped
+    const statusCycle: Record<string, string> = {
+      'pending': 'in_progress',
+      'in_progress': 'completed',
+      'completed': 'skipped',
+      'skipped': 'pending',
+      'partially_completed': 'completed',
+      'missed': 'pending',
+    };
+    const nextStatus = statusCycle[currentStatus] || 'pending';
+    await updateTaskStatus(taskId, nextStatus, currentTab);
   }
 
   async function saveReflection() {
@@ -627,11 +663,12 @@ export default function TimeClient() {
     } catch {}
   }
 
-  // Auto-mark yesterday's pending tasks as missed
+  // Auto-mark yesterday's pending tasks as missed + migrate tomorrow's tasks to today at midnight
   useEffect(() => {
-    const markMissed = async () => {
+    const markMissedAndMigrate = async () => {
       const yesterday = getLocalDateStr(-1);
       try {
+        // Mark yesterday's pending/in_progress tasks as missed
         const r = await fetch(`/api/time/tasks?date=${yesterday}`);
         if (r.ok) {
           const d = await r.json();
@@ -649,7 +686,7 @@ export default function TimeClient() {
         }
       } catch {}
     };
-    markMissed();
+    markMissedAndMigrate();
   }, []);
 
   const filteredTodayTasks = filterCategory === 'all' ? tasks : tasks.filter((t: any) => t.category === filterCategory);
@@ -717,47 +754,29 @@ export default function TimeClient() {
 
           {/* ── Plan Tomorrow Button ── */}
           <Button
-            onClick={() => setUpcomingExpanded(true)}
+            onClick={() => {
+              // Scroll to tomorrow section
+              document.getElementById('tomorrow-section')?.scrollIntoView({ behavior: 'smooth' });
+            }}
             variant="ghost"
             className="w-full text-indigo-400 hover:text-indigo-300 hover:bg-indigo-600/10 text-xs border border-indigo-500/20"
           >
             <Moon size={14} className="mr-1" /> Plan Tomorrow
           </Button>
 
-          {/* ── Tomorrow's Tasks (collapsible) ── */}
-          <div className="space-y-2">
-            <button
-              onClick={() => setUpcomingExpanded(!upcomingExpanded)}
-              className="flex items-center gap-2 px-1 w-full text-left"
-            >
-              <motion.div animate={{ rotate: upcomingExpanded ? 180 : 0 }} transition={{ duration: 0.2 }}>
-                <ChevronDown size={14} className="text-indigo-400" />
-              </motion.div>
+          {/* ── Tomorrow's Tasks (always visible) ── */}
+          <div id="tomorrow-section" className="space-y-2">
+            <div className="flex items-center gap-2 px-1">
               <span className="text-xs font-semibold text-indigo-400">Tomorrow</span>
               <span className="text-[10px] text-muted-foreground/50">{tomorrowTasks.length} task{tomorrowTasks.length !== 1 ? 's' : ''}</span>
-              {!upcomingExpanded && tomorrowTasks.length > 0 && (
-                <span className="text-[10px] text-muted-foreground/40 ml-auto">{tomorrowTasks.length} tasks planned</span>
-              )}
-            </button>
-            <AnimatePresence>
-              {upcomingExpanded && (
-                <motion.div
-                  initial={{ height: 0, opacity: 0 }}
-                  animate={{ height: 'auto', opacity: 1 }}
-                  exit={{ height: 0, opacity: 0 }}
-                  transition={{ duration: 0.2 }}
-                  className="overflow-hidden space-y-2"
-                >
-                  <AddTaskForm defaultDate="tomorrow" today={today} tomorrow={tomorrow} filterCategory={filterCategory} onSetFilterCategory={setFilterCategory} onRefresh={refreshTab} />
-                  {filteredTomorrowTasks.map((task: any) => (
-                    <TaskCard key={task.id} task={task} currentTab="tomorrow" onToggleTask={toggleTask} onUpdateTaskStatus={updateTaskStatus} onDeleteTask={deleteTask} onSetReflectionModal={setReflectionModal} onRefresh={refreshTab} />
-                  ))}
-                  {tomorrowTasks.length === 0 && (
-                    <p className="text-center text-muted-foreground/50 py-4 text-sm">No tasks planned for tomorrow yet.</p>
-                  )}
-                </motion.div>
-              )}
-            </AnimatePresence>
+            </div>
+            <AddTaskForm defaultDate="tomorrow" today={today} tomorrow={tomorrow} filterCategory={filterCategory} onSetFilterCategory={setFilterCategory} onRefresh={refreshTab} />
+            {filteredTomorrowTasks.map((task: any) => (
+              <TaskCard key={task.id} task={task} currentTab="tomorrow" onToggleTask={toggleTask} onUpdateTaskStatus={updateTaskStatus} onDeleteTask={deleteTask} onSetReflectionModal={setReflectionModal} onRefresh={refreshTab} />
+            ))}
+            {tomorrowTasks.length === 0 && (
+              <p className="text-center text-muted-foreground/50 py-4 text-sm">No tasks planned for tomorrow yet.</p>
+            )}
           </div>
 
           <div className="flex gap-2">
