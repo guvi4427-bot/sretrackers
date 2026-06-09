@@ -43,3 +43,4 @@ deploy-*.log
 logs/
 db/custom.db
 .env*
+workspace-extract/
