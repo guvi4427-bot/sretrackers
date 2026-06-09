@@ -50,6 +50,7 @@ interface WorkoutTrackerProps {
   onAddWorkout: (date: string) => void;
   onEditWorkout: (workout: any) => void;
   onUpdateNotes: (id: string, notes: string) => void;
+  allWorkouts?: any[];
 }
 
 // ─── Component ───────────────────────────────────────────────────────────────
@@ -60,6 +61,7 @@ export function WorkoutTracker({
   onAddWorkout,
   onEditWorkout,
   onUpdateNotes,
+  allWorkouts,
 }: WorkoutTrackerProps) {
   const today = getLocalDateStr();
 
@@ -238,6 +240,7 @@ export function WorkoutTracker({
         onDelete={onDeleteWorkout}
         onNotesChange={onUpdateNotes}
         onAddWorkout={onAddWorkout}
+        allWorkouts={allWorkouts || workouts}
       />
     </div>
   );

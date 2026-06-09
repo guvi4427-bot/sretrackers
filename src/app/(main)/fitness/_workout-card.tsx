@@ -2,7 +2,7 @@
 
 import { useState, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Trash2, Edit3, MoreVertical, Clock, SkipForward, Circle, CheckCircle2, Flame, Dumbbell, Timer, X } from 'lucide-react';
+import { Trash2, Edit3, MoreVertical, Clock, SkipForward, Circle, CheckCircle2, Flame, Dumbbell, Timer, X, TrendingUp } from 'lucide-react';
 import { GlassCard } from '@/components/glass-card';
 
 // ─── Constants ───────────────────────────────────────────────────────────────
@@ -51,6 +51,7 @@ interface WorkoutCardProps {
   onEdit: (workout: any) => void;
   onDelete: (id: string) => void;
   onNotesChange: (id: string, notes: string) => void;
+  previousWorkout?: any | null;
 }
 
 // ─── Component ───────────────────────────────────────────────────────────────
@@ -62,6 +63,7 @@ export function WorkoutCard({
   onEdit,
   onDelete,
   onNotesChange,
+  previousWorkout,
 }: WorkoutCardProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [editingNotes, setEditingNotes] = useState(false);
@@ -74,6 +76,7 @@ export function WorkoutCard({
   const StatusIcon = cfg.icon;
   const muscle = workout.muscleGroup ? MUSCLE_GROUP_META[workout.muscleGroup] : null;
   const isWeightTraining = workout.workoutType === 'Weight Training';
+  const isPlanned = workout.notes && typeof workout.notes === 'string' && workout.notes.includes('[PLANNED]');
 
   // Close menu on outside click
   const handleMenuToggle = useCallback(() => {
@@ -109,8 +112,8 @@ export function WorkoutCard({
 
   return (
     <GlassCard
-      variant="default"
-      className="relative group p-3 sm:p-4"
+      variant="glassmorphism"
+      className="relative group p-4"
     >
       {/* Top row: Workout name + status + menu */}
       <div className="flex items-start justify-between gap-2 mb-2">
@@ -131,9 +134,16 @@ export function WorkoutCard({
               {cfg.label}
             </motion.button>
 
+            {/* Planned badge */}
+            {isPlanned && (
+              <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[9px] bg-blue-500/10 border border-blue-500/20 text-blue-300 font-medium">
+                📋 Planned
+              </span>
+            )}
+
             {/* Muscle group tag */}
             {muscle && (
-              <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md text-[10px] bg-blue-500/10 border border-blue-500/20 text-blue-300">
+              <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md text-[10px] bg-amber-500/10 border border-amber-500/20 text-amber-300">
                 {muscle.icon} {muscle.label}
               </span>
             )}
@@ -141,7 +151,7 @@ export function WorkoutCard({
 
           {/* Workout type subtitle (if different from title) */}
           {workout.workoutSplit && (
-            <p className="text-[10px] text-muted-foreground/50 mt-0.5 capitalize">
+            <p className="text-[10px] text-muted-foreground/40 mt-0.5 capitalize">
               {workout.workoutSplit.replace(/_/g, ' ')}
             </p>
           )}
@@ -151,7 +161,7 @@ export function WorkoutCard({
         <div className="relative shrink-0">
           <button
             onClick={handleMenuToggle}
-            className="p-1 rounded-md text-muted-foreground/40 hover:text-foreground hover:bg-accent/50 transition-colors"
+            className="p-1 rounded-md text-muted-foreground/30 hover:text-foreground hover:bg-accent/50 transition-colors"
           >
             <MoreVertical size={14} />
           </button>
@@ -192,24 +202,45 @@ export function WorkoutCard({
       </div>
 
       {/* Stats row: Duration, Calories, Sets/Reps/Load */}
-      <div className="flex items-center gap-3 flex-wrap text-[11px] text-muted-foreground/70 mb-2">
+      <div className="flex items-center gap-3 flex-wrap text-[11px] text-muted-foreground/60 mb-2">
         <span className="inline-flex items-center gap-1">
-          <Timer size={11} className="text-blue-400/60" />
+          <Timer size={11} className="text-blue-400/50" />
           {formatDuration(workout.duration)}
         </span>
         {workout.estimatedCalories > 0 && (
           <span className="inline-flex items-center gap-1">
-            <Flame size={11} className="text-red-400/60" />
+            <Flame size={11} className="text-red-400/50" />
             {Math.round(workout.estimatedCalories)} cal
           </span>
         )}
         {isWeightTraining && workout.sets && (
           <span className="inline-flex items-center gap-1">
-            <Dumbbell size={11} className="text-amber-400/60" />
+            <Dumbbell size={11} className="text-amber-400/50" />
             {workout.sets} × {workout.reps} @ {workout.loadKg}kg
           </span>
         )}
       </div>
+
+      {/* Previous performance comparison */}
+      {previousWorkout && previousWorkout.sets && previousWorkout.reps && previousWorkout.loadKg && (
+        <div className="flex items-center gap-2 mb-2 px-2.5 py-1.5 rounded-lg bg-blue-500/5 border border-blue-500/10">
+          <TrendingUp size={11} className="text-blue-400/50" />
+          <span className="text-[9px] text-muted-foreground/50">Previous:</span>
+          <span className="text-[9px] text-blue-300/70 font-medium">{previousWorkout.loadKg}kg × {previousWorkout.reps}</span>
+          {isWeightTraining && workout.loadKg && workout.reps && (
+            <>
+              <span className="text-[9px] text-muted-foreground/30">→</span>
+              <span className={`text-[9px] font-medium ${
+                workout.loadKg > previousWorkout.loadKg ? 'text-emerald-300' : workout.loadKg < previousWorkout.loadKg ? 'text-red-300' : 'text-muted-foreground/50'
+              }`}>
+                {workout.loadKg}kg × {workout.reps}
+                {workout.loadKg > previousWorkout.loadKg && ' ↑'}
+                {workout.loadKg < previousWorkout.loadKg && ' ↓'}
+              </span>
+            </>
+          )}
+        </div>
+      )}
 
       {/* Inline Notes */}
       <div className="mt-1">
@@ -229,17 +260,19 @@ export function WorkoutCard({
             {saving && (
               <span className="absolute top-1 right-2 text-[9px] text-blue-400/60">Saving...</span>
             )}
-            <p className="text-[9px] text-muted-foreground/30 mt-0.5">
+            <p className="text-[9px] text-muted-foreground/25 mt-0.5">
               Ctrl+Enter to save · Esc to cancel
             </p>
           </div>
         ) : (
           <button
             onClick={() => { setNoteDraft(workout.notes || ''); setEditingNotes(true); }}
-            className="w-full text-left text-xs text-muted-foreground/50 hover:text-muted-foreground/80 hover:bg-accent/20 rounded-lg px-2 py-1.5 -mx-2 transition-colors min-h-[24px]"
+            className="w-full text-left text-xs text-muted-foreground/40 hover:text-muted-foreground/70 hover:bg-accent/20 rounded-lg px-2 py-1.5 -mx-2 transition-colors min-h-[24px]"
           >
-            {workout.notes ? (
-              <span className="text-muted-foreground/70 whitespace-pre-wrap">{workout.notes}</span>
+            {workout.notes && !isPlanned ? (
+              <span className="text-muted-foreground/60 whitespace-pre-wrap">{workout.notes}</span>
+            ) : isPlanned && workout.notes ? (
+              <span className="text-muted-foreground/40 whitespace-pre-wrap">{workout.notes.replace('[PLANNED]', '').trim()}</span>
             ) : (
               <span className="italic">+ Add notes</span>
             )}

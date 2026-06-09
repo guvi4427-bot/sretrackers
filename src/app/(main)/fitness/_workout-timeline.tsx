@@ -68,6 +68,7 @@ interface WorkoutTimelineProps {
   onDelete: (id: string) => void;
   onNotesChange: (id: string, notes: string) => void;
   onAddWorkout: (date: string) => void;
+  allWorkouts?: any[];
 }
 
 // ─── Animation Variants ──────────────────────────────────────────────────────
@@ -94,19 +95,35 @@ export function WorkoutTimeline({
   onDelete,
   onNotesChange,
   onAddWorkout,
+  allWorkouts = [],
 }: WorkoutTimelineProps) {
   if (groups.length === 0) {
     return (
       <div className="text-center py-12">
-        <Dumbbell size={32} className="text-muted-foreground/20 mx-auto mb-3" />
-        <p className="text-sm text-muted-foreground/50">No workouts found</p>
-        <p className="text-xs text-muted-foreground/30 mt-1">Log a workout to see it here</p>
+        <Dumbbell size={32} className="text-muted-foreground/15 mx-auto mb-3" />
+        <p className="text-sm text-muted-foreground/40">No workouts found</p>
+        <p className="text-xs text-muted-foreground/20 mt-1">Log a workout to see it here</p>
       </div>
     );
   }
 
+  // Find previous workout for a given workout (same type + muscle group, earlier date)
+  const findPreviousWorkout = (workout: any): any | null => {
+    if (!workout.workoutType || !workout.muscleGroup) return null;
+    const prev = allWorkouts
+      .filter((w: any) =>
+        w.id !== workout.id &&
+        w.workoutType === workout.workoutType &&
+        w.muscleGroup === workout.muscleGroup &&
+        w.sets && w.reps && w.loadKg &&
+        (w.date || '') < (workout.date || '')
+      )
+      .sort((a: any, b: any) => (b.date || '').localeCompare(a.date || ''));
+    return prev[0] || null;
+  };
+
   return (
-    <div className="space-y-3">
+    <div className="space-y-4">
       {groups.map(group => {
         const isExpanded = expandedGroups[group.date] ?? true;
 
@@ -117,7 +134,7 @@ export function WorkoutTimeline({
             initial="hidden"
             animate="show"
           >
-            {/* Group Header */}
+            {/* Group Header — Notion-style */}
             <button
               onClick={() => onToggleGroup(group.date)}
               className="w-full flex items-center gap-3 px-1 py-2 group/header"
@@ -126,34 +143,34 @@ export function WorkoutTimeline({
               <motion.div
                 animate={{ rotate: isExpanded ? 180 : 0 }}
                 transition={{ duration: 0.2 }}
-                className="text-muted-foreground/30 group-hover/header:text-muted-foreground/60 transition-colors"
+                className="text-muted-foreground/25 group-hover/header:text-muted-foreground/50 transition-colors"
               >
                 <ChevronDown size={14} />
               </motion.div>
 
-              {/* Date label */}
+              {/* Date label — Notion-style prominent */}
               <div className="flex-1 text-left">
                 <span className="text-sm font-semibold text-foreground">{group.label}</span>
-                <span className="text-[10px] text-muted-foreground/40 ml-2">{group.sublabel}</span>
+                <span className="text-[10px] text-muted-foreground/30 ml-2">{group.sublabel}</span>
               </div>
 
-              {/* Stats summary */}
-              <div className="flex items-center gap-3 text-[11px]">
-                <span className="text-muted-foreground/50">
+              {/* Stats summary — pill style */}
+              <div className="flex items-center gap-2 text-[10px]">
+                <span className="text-muted-foreground/40 bg-accent/20 px-2 py-0.5 rounded-full">
                   {group.workouts.length} workout{group.workouts.length !== 1 ? 's' : ''}
                 </span>
-                <span className="inline-flex items-center gap-0.5 text-amber-400/70">
-                  <Timer size={10} /> {formatDuration(group.totalMin)}
+                <span className="inline-flex items-center gap-0.5 text-amber-400/60 bg-accent/20 px-2 py-0.5 rounded-full">
+                  <Timer size={9} /> {formatDuration(group.totalMin)}
                 </span>
                 {group.totalCal > 0 && (
-                  <span className="inline-flex items-center gap-0.5 text-red-400/70">
-                    <Flame size={10} /> {Math.round(group.totalCal)} cal
+                  <span className="inline-flex items-center gap-0.5 text-red-400/60 bg-accent/20 px-2 py-0.5 rounded-full">
+                    <Flame size={9} /> {Math.round(group.totalCal)} cal
                   </span>
                 )}
               </div>
             </button>
 
-            {/* Collapsible workout cards */}
+            {/* Collapsible workout cards — Notion-style left border line */}
             <AnimatePresence initial={false}>
               {isExpanded && (
                 <motion.div
@@ -164,7 +181,7 @@ export function WorkoutTimeline({
                   className="overflow-hidden"
                 >
                   <motion.div
-                    className="pl-4 border-l-2 border-blue-500/10 ml-1 space-y-2 mb-1"
+                    className="pl-5 border-l-2 border-blue-500/8 ml-1.5 space-y-2 mb-2"
                     variants={groupVariants}
                     initial="hidden"
                     animate="show"
@@ -178,15 +195,16 @@ export function WorkoutTimeline({
                           onEdit={onEdit}
                           onDelete={onDelete}
                           onNotesChange={onNotesChange}
+                          previousWorkout={findPreviousWorkout(w)}
                         />
                       </motion.div>
                     ))}
 
-                    {/* + New Workout button */}
+                    {/* + New Workout button — Notion-style */}
                     <motion.div variants={cardVariants}>
                       <button
                         onClick={() => onAddWorkout(group.date)}
-                        className="w-full flex items-center gap-2 px-3 py-2.5 rounded-xl border border-dashed border-blue-500/15 text-blue-400/50 hover:text-blue-400 hover:border-blue-500/30 hover:bg-blue-500/5 transition-all text-xs"
+                        className="w-full flex items-center gap-2 px-3 py-2.5 rounded-xl border border-dashed border-blue-500/10 text-blue-400/40 hover:text-blue-400 hover:border-blue-500/25 hover:bg-blue-500/5 transition-all text-xs"
                       >
                         <Plus size={13} />
                         New Workout

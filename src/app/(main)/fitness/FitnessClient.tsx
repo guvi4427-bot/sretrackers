@@ -41,6 +41,21 @@ const MUSCLE_GROUP_META: Record<string, { label: string; icon: string }> = {
   full_body: { label: 'Full Body',  icon: '🏋️' },
 };
 
+const WORKOUT_TYPE_META: Record<string, { icon: string; estCalPerMin: string; color: string; bg: string }> = {
+  'Running':         { icon: '🏃', estCalPerMin: '10-12', color: 'text-orange-400',  bg: 'bg-orange-500/10 border-orange-500/20' },
+  'Walking':         { icon: '🚶', estCalPerMin: '4-5',   color: 'text-green-400',   bg: 'bg-green-500/10 border-green-500/20' },
+  'Cycling':         { icon: '🚴', estCalPerMin: '7-10',  color: 'text-cyan-400',    bg: 'bg-cyan-500/10 border-cyan-500/20' },
+  'Swimming':        { icon: '🏊', estCalPerMin: '8-10',  color: 'text-blue-400',    bg: 'bg-blue-500/10 border-blue-500/20' },
+  'Weight Training': { icon: '🏋️', estCalPerMin: '6-8',   color: 'text-amber-400',   bg: 'bg-amber-500/10 border-amber-500/20' },
+  'HIIT':            { icon: '🔥', estCalPerMin: '12-15', color: 'text-red-400',     bg: 'bg-red-500/10 border-red-500/20' },
+  'Yoga':            { icon: '🧘', estCalPerMin: '3-5',   color: 'text-purple-400',  bg: 'bg-purple-500/10 border-purple-500/20' },
+  'Pilates':         { icon: '🤸', estCalPerMin: '4-6',   color: 'text-pink-400',    bg: 'bg-pink-500/10 border-pink-500/20' },
+  'Dance':           { icon: '💃', estCalPerMin: '6-9',   color: 'text-fuchsia-400', bg: 'bg-fuchsia-500/10 border-fuchsia-500/20' },
+  'Boxing':          { icon: '🥊', estCalPerMin: '10-13', color: 'text-red-400',     bg: 'bg-red-500/10 border-red-500/20' },
+  'Jump Rope':       { icon: '⏭️', estCalPerMin: '11-14', color: 'text-emerald-400', bg: 'bg-emerald-500/10 border-emerald-500/20' },
+  'Other':           { icon: '⚡', estCalPerMin: '5-7',   color: 'text-zinc-400',    bg: 'bg-zinc-500/10 border-zinc-500/20' },
+};
+
 const WORKOUT_SPLITS = [
   { value: 'push_pull_legs', label: 'Push / Pull / Legs' },
   { value: 'upper_lower',    label: 'Upper / Lower' },
@@ -188,6 +203,14 @@ export default function FitnessClient() {
   const [workoutStartTime, setWorkoutStartTime] = useState<number | null>(null);
   const [workoutElapsed, setWorkoutElapsed] = useState(0);
   const [showWorkoutSuccess, setShowWorkoutSuccess] = useState(false);
+
+  // Multi-exercise support (Hevy-style)
+  const [exercises, setExercises] = useState<Array<{
+    name: string;
+    muscleGroup: string;
+    sets: Array<{ weight: string; reps: string; done: boolean }>;
+    notes: string;
+  }>>([]);
 
   // Tomorrow's planned workout state
   const [tomorrowWorkoutPlans, setTomorrowWorkoutPlans] = useState<any[]>([]);
@@ -533,64 +556,116 @@ export default function FitnessClient() {
   }
 
   async function addWorkout() {
-    // Use Hevy-style exerciseSets for Weight Training if available
-    const lastSet = exerciseSets[exerciseSets.length - 1];
-    const hevySets = selectedWorkoutType === 'Weight Training' && lastSet ? exerciseSets.length : undefined;
-    const hevyReps = selectedWorkoutType === 'Weight Training' && lastSet ? (parseInt(lastSet.reps) || undefined) : undefined;
-    const hevyLoadKg = selectedWorkoutType === 'Weight Training' && lastSet && lastSet.weight
-      ? (isImperial ? lbsToKg(parseFloat(lastSet.weight)) : parseFloat(lastSet.weight)) || undefined
-      : undefined;
-
     // Show success animation first
     setShowWorkoutSuccess(true);
 
     try {
-      const r = await fetch('/api/fitness/workout', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          workoutType: selectedWorkoutType,
-          duration: parseInt(workoutDuration),
-          estimatedCalories: estimatedBurn?.estimatedCalories || 0,
-          date: selectedWorkoutDate,
-          muscleGroup: selectedWorkoutType === 'Weight Training' ? muscleGroup : undefined,
-          sets: hevySets ?? (selectedWorkoutType === 'Weight Training' ? parseInt(workoutSets) || undefined : undefined),
-          reps: hevyReps ?? (selectedWorkoutType === 'Weight Training' ? parseInt(workoutReps) || undefined : undefined),
-          loadKg: hevyLoadKg ?? (selectedWorkoutType === 'Weight Training' ? (isImperial ? lbsToKg(parseFloat(workoutLoad)) : parseFloat(workoutLoad)) || undefined : undefined),
-          workoutSplit: fitnessProfile?.workoutSplit || undefined,
-        }),
-      });
-      if (r.ok) {
-        const d = await r.json();
-        const newWorkout = d.workout;
-        if (newWorkout) {
-          setWorkouts(prev => [newWorkout, ...prev]);
+      const isWeightTraining = selectedWorkoutType === 'Weight Training';
+      const totalDuration = parseInt(workoutDuration) || 0;
+
+      if (isWeightTraining && exercises.length > 0) {
+        // Multi-exercise mode: create a separate DB entry for each exercise
+        // First exercise gets the full duration; subsequent ones get duration 0 (same session)
+        const totalCal = estimatedBurn?.estimatedCalories || 0;
+        let calPerExercise = totalCal > 0 ? Math.round(totalCal / exercises.length) : 0;
+
+        for (let i = 0; i < exercises.length; i++) {
+          const ex = exercises[i];
+          const completedSets = ex.sets.filter(s => s.done);
+          const lastSet = completedSets.length > 0 ? completedSets[completedSets.length - 1] : ex.sets[ex.sets.length - 1];
+          const exSets = lastSet ? completedSets.length || ex.sets.length : undefined;
+          const exReps = lastSet ? (parseInt(lastSet.reps) || undefined) : undefined;
+          const exLoadKg = lastSet && lastSet.weight
+            ? (isImperial ? lbsToKg(parseFloat(lastSet.weight)) : parseFloat(lastSet.weight)) || undefined
+            : undefined;
+
+          const body: any = {
+            workoutType: ex.name || selectedWorkoutType,
+            duration: i === 0 ? totalDuration : 0,
+            estimatedCalories: i === 0 ? totalCal : (i < exercises.length - 1 ? calPerExercise : totalCal - calPerExercise * (exercises.length - 1)),
+            date: selectedWorkoutDate,
+            muscleGroup: ex.muscleGroup || muscleGroup,
+            sets: exSets,
+            reps: exReps,
+            loadKg: exLoadKg,
+            workoutSplit: fitnessProfile?.workoutSplit || undefined,
+            notes: [workoutNotes, ex.notes].filter(Boolean).join(' · ') || undefined,
+          };
+
+          const r = await fetch('/api/fitness/workout', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body),
+          });
+          if (r.ok) {
+            const d = await r.json();
+            const newWorkout = d.workout;
+            if (newWorkout && i === 0) {
+              setWorkouts(prev => [newWorkout, ...prev]);
+            }
+          }
         }
         toast.success(`+15 ${t('xp.earned')}`);
-        // Delayed reset after success animation
-        setTimeout(() => {
-          setWorkoutStep('type');
-          setSelectedWorkoutType('');
-          setMuscleGroup('chest');
-          setWorkoutSets(''); setWorkoutReps(''); setWorkoutLoad('');
-          setWorkoutDuration(''); setEstimatedBurn(null);
-          // Reset Hevy-style form state
-          setExerciseName('');
-          setExerciseSets([{ weight: '', reps: '', done: false }]);
-          setWorkoutNotes('');
-          setRestTimerSeconds(90); setRestTimerRunning(false);
-          setWorkoutStartTime(null);
-          setWorkoutElapsed(0);
-          setShowWorkoutSuccess(false);
-        }, 1500);
-        if (selectedWorkoutDate !== today) fetchWorkoutForDate(selectedWorkoutDate);
-        await fetchWorkouts();
-        fetchAllWorkouts(); // Refresh chart data
-        fetchUserProfile();
-        window.dispatchEvent(new CustomEvent('xp-updated')); window.dispatchEvent(new CustomEvent('notification-updated'));
       } else {
-        setShowWorkoutSuccess(false);
+        // Non-weight-training or single-exercise fallback
+        const lastSet = exerciseSets[exerciseSets.length - 1];
+        const hevySets = isWeightTraining && lastSet ? exerciseSets.length : undefined;
+        const hevyReps = isWeightTraining && lastSet ? (parseInt(lastSet.reps) || undefined) : undefined;
+        const hevyLoadKg = isWeightTraining && lastSet && lastSet.weight
+          ? (isImperial ? lbsToKg(parseFloat(lastSet.weight)) : parseFloat(lastSet.weight)) || undefined
+          : undefined;
+
+        const r = await fetch('/api/fitness/workout', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            workoutType: selectedWorkoutType,
+            duration: totalDuration,
+            estimatedCalories: estimatedBurn?.estimatedCalories || 0,
+            date: selectedWorkoutDate,
+            muscleGroup: isWeightTraining ? muscleGroup : undefined,
+            sets: hevySets ?? (isWeightTraining ? parseInt(workoutSets) || undefined : undefined),
+            reps: hevyReps ?? (isWeightTraining ? parseInt(workoutReps) || undefined : undefined),
+            loadKg: hevyLoadKg ?? (isWeightTraining ? (isImperial ? lbsToKg(parseFloat(workoutLoad)) : parseFloat(workoutLoad)) || undefined : undefined),
+            workoutSplit: fitnessProfile?.workoutSplit || undefined,
+            notes: workoutNotes || undefined,
+          }),
+        });
+        if (r.ok) {
+          const d = await r.json();
+          const newWorkout = d.workout;
+          if (newWorkout) {
+            setWorkouts(prev => [newWorkout, ...prev]);
+          }
+          toast.success(`+15 ${t('xp.earned')}`);
+        } else {
+          setShowWorkoutSuccess(false);
+          return;
+        }
       }
+
+      // Delayed reset after success animation
+      setTimeout(() => {
+        setWorkoutStep('type');
+        setSelectedWorkoutType('');
+        setMuscleGroup('chest');
+        setWorkoutSets(''); setWorkoutReps(''); setWorkoutLoad('');
+        setWorkoutDuration(''); setEstimatedBurn(null);
+        // Reset Hevy-style form state
+        setExerciseName('');
+        setExerciseSets([{ weight: '', reps: '', done: false }]);
+        setWorkoutNotes('');
+        setExercises([]);
+        setRestTimerSeconds(90); setRestTimerRunning(false);
+        setWorkoutStartTime(null);
+        setWorkoutElapsed(0);
+        setShowWorkoutSuccess(false);
+      }, 1500);
+      if (selectedWorkoutDate !== today) fetchWorkoutForDate(selectedWorkoutDate);
+      await fetchWorkouts();
+      fetchAllWorkouts(); // Refresh chart data
+      fetchUserProfile();
+      window.dispatchEvent(new CustomEvent('xp-updated')); window.dispatchEvent(new CustomEvent('notification-updated'));
     } catch {
       setShowWorkoutSuccess(false);
     }
@@ -1572,102 +1647,494 @@ export default function FitnessClient() {
         {/* Workouts */}
         <TabsContent value="workouts" className="space-y-4 mt-4">
 
-          {/* Step 1: Select workout type */}
+          {/* Step 1: Select workout type — Hevy-style large cards */}
           {workoutStep === 'type' && (
-            <GlassCard variant="glassmorphism" className="p-4">
-              <h3 className="text-sm font-medium text-muted-foreground mb-3">Select Workout Type</h3>
-
-              {/* Date selector */}
-              <div className="flex items-center gap-2 mb-4">
-                <input
-                  type="date"
-                  value={selectedWorkoutDate}
-                  max={today}
-                  onChange={e => {
-                    setSelectedWorkoutDate(e.target.value);
-                    if (e.target.value !== today && !workoutHistory[e.target.value]) {
-                      fetchWorkoutForDate(e.target.value);
-                    }
-                  }}
-                  className="bg-accent border border-border text-foreground rounded-md px-3 py-1.5 text-sm"
-                />
-                {selectedWorkoutDate !== today && (
-                  <button onClick={() => setSelectedWorkoutDate(today)} className="text-xs text-blue-400 hover:underline">Back to today</button>
-                )}
-              </div>
-
-              {/* Workout type grid */}
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                {WEIGHT_TYPES.map(type => (
-                  <motion.button
-                    key={type}
-                    whileHover={{ scale: 1.02 }}
-                    onClick={() => {
-                      setSelectedWorkoutType(type);
-                      setExerciseName(type === 'Weight Training' ? '' : type);
-                      setExerciseSets([{ weight: '', reps: '', done: false }]);
-                      setWorkoutNotes('');
-                      setWorkoutStep('log');
-                      setEstimatedBurn(null);
-                      setRestTimerSeconds(90);
-                      setRestTimerRunning(false);
-                      setWorkoutStartTime(Date.now());
-                      setWorkoutElapsed(0);
-                    }}
-                    className="p-3 rounded-xl bg-accent border border-border hover:border-blue-500/40 hover:bg-blue-600/10 transition-all text-left"
-                  >
-                    <p className="text-sm font-medium text-foreground">{type}</p>
-                    {type === 'Weight Training' && (
-                      <p className="text-[10px] text-blue-400 mt-0.5">Sets · Reps · Load</p>
+            <>
+              <GlassCard variant="glassmorphism" className="p-4">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
+                    <Dumbbell size={16} className="text-amber-400" /> Start Workout
+                  </h3>
+                  {/* Date selector */}
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="date"
+                      value={selectedWorkoutDate}
+                      max={today}
+                      onChange={e => {
+                        setSelectedWorkoutDate(e.target.value);
+                        if (e.target.value !== today && !workoutHistory[e.target.value]) {
+                          fetchWorkoutForDate(e.target.value);
+                        }
+                      }}
+                      className="bg-accent border border-border text-foreground rounded-md px-2 py-1 text-xs"
+                    />
+                    {selectedWorkoutDate !== today && (
+                      <button onClick={() => setSelectedWorkoutDate(today)} className="text-[10px] text-blue-400 hover:underline">Today</button>
                     )}
-                  </motion.button>
-                ))}
-              </div>
-            </GlassCard>
+                  </div>
+                </div>
+
+                {/* Workout type grid — large cards with icons & est cal/min */}
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                  {WEIGHT_TYPES.map((type, idx) => {
+                    const meta = WORKOUT_TYPE_META[type] || WORKOUT_TYPE_META['Other'];
+                    return (
+                      <motion.button
+                        key={type}
+                        initial={{ opacity: 0, y: 12 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: idx * 0.03, duration: 0.25 }}
+                        whileHover={{ scale: 1.03, y: -2 }}
+                        whileTap={{ scale: 0.97 }}
+                        onClick={() => {
+                          setSelectedWorkoutType(type);
+                          setWorkoutNotes('');
+                          setWorkoutStep('log');
+                          setEstimatedBurn(null);
+                          setRestTimerSeconds(90);
+                          setRestTimerRunning(false);
+                          setWorkoutStartTime(Date.now());
+                          setWorkoutElapsed(0);
+                          if (type === 'Weight Training') {
+                            // Initialize with one empty exercise card
+                            setExercises([{ name: '', muscleGroup: 'chest', sets: [{ weight: '', reps: '', done: false }], notes: '' }]);
+                            setMuscleGroup('chest');
+                          } else {
+                            setExercises([]);
+                            setExerciseName(type);
+                            setExerciseSets([{ weight: '', reps: '', done: false }]);
+                          }
+                        }}
+                        className={`relative p-4 rounded-xl border text-left transition-all overflow-hidden group ${meta.bg} hover:scale-[1.03]`}
+                      >
+                        <div className="text-2xl mb-2">{meta.icon}</div>
+                        <p className="text-sm font-semibold text-foreground">{type}</p>
+                        <div className="flex items-center gap-1.5 mt-1.5">
+                          <Flame size={10} className="text-amber-400/60" />
+                          <span className="text-[10px] text-muted-foreground/60">{meta.estCalPerMin} cal/min</span>
+                        </div>
+                        {type === 'Weight Training' && (
+                          <div className="absolute top-2 right-2">
+                            <span className="text-[8px] bg-amber-500/20 text-amber-300 px-1.5 py-0.5 rounded-full font-medium">SETS · Reps · Load</span>
+                          </div>
+                        )}
+                        <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-blue-500/30 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                      </motion.button>
+                    );
+                  })}
+                </div>
+              </GlassCard>
+            </>
           )}
 
-          {/* Step 2: Hevy-style exercise card layout */}
+          {/* Step 2: Hevy-style active workout session */}
           {workoutStep === 'log' && (
-            <GlassCard variant="glassmorphism" className="p-4">
-              {/* Header bar */}
-              <div className="flex items-center gap-2 mb-5">
-                <button onClick={() => setWorkoutStep('type')} className="text-muted-foreground hover:text-foreground transition-colors">
-                  <ChevronLeft size={20} />
-                </button>
-                <div className="flex-1">
-                  <h3 className="text-base font-semibold text-foreground">{selectedWorkoutType}</h3>
+            <>
+              {/* Top Bar: Back | Workout Type | Elapsed Timer | Date */}
+              <GlassCard variant="glassmorphism" className="p-4">
+                <div className="flex items-center gap-2 mb-4">
+                  <button onClick={() => setWorkoutStep('type')} className="text-muted-foreground hover:text-foreground transition-colors p-1">
+                    <ChevronLeft size={20} />
+                  </button>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="text-lg">{WORKOUT_TYPE_META[selectedWorkoutType]?.icon || '🏋️'}</span>
+                      <h3 className="text-base font-bold text-foreground truncate">{selectedWorkoutType}</h3>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3 shrink-0">
+                    {/* Elapsed timer */}
+                    <div className="text-center">
+                      <p className="text-sm font-mono font-bold text-amber-400">
+                        {workoutStartTime ? `${Math.floor(workoutElapsed / 60)}:${String(workoutElapsed % 60).padStart(2, '0')}` : '0:00'}
+                      </p>
+                      <p className="text-[8px] text-muted-foreground/40 uppercase tracking-wider">Elapsed</p>
+                    </div>
+                    <span className="text-xs text-muted-foreground/60 flex items-center gap-1">
+                      <Clock size={11} />
+                      {selectedWorkoutDate === today ? 'Today' : selectedWorkoutDate}
+                    </span>
+                  </div>
                 </div>
-                <span className="text-xs text-muted-foreground flex items-center gap-1">
-                  <Clock size={12} />
-                  {selectedWorkoutDate === today ? 'Today' : selectedWorkoutDate}
-                </span>
-              </div>
 
-              {/* Workout Summary Card */}
-              <div className="grid grid-cols-3 gap-2 mb-4">
-                <div className="text-center p-2 rounded-lg bg-blue-500/10 border border-blue-500/20">
-                  <p className="text-sm font-bold text-blue-400">{exerciseSets.filter(s => s.done).length}<span className="text-muted-foreground/50 text-xs">/{exerciseSets.length}</span></p>
-                  <p className="text-[9px] text-muted-foreground/50">Sets Done</p>
-                </div>
-                <div className="text-center p-2 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
-                  <p className="text-sm font-bold text-emerald-400">{(() => {
-                    const vol = exerciseSets.reduce((sum, s) => {
+                {/* Workout Summary Stats */}
+                <div className="grid grid-cols-3 gap-2 mb-4">
+                  {(() => {
+                    const isWT = selectedWorkoutType === 'Weight Training' && exercises.length > 0;
+                    const allSets = isWT ? exercises.flatMap(e => e.sets) : exerciseSets;
+                    const setsDone = allSets.filter(s => s.done).length;
+                    const totalSets = allSets.length;
+                    const vol = allSets.reduce((sum, s) => {
                       const w = parseFloat(s.weight) || 0;
                       const r = parseInt(s.reps) || 0;
                       return sum + (s.done ? w * r : 0);
                     }, 0);
-                    return vol >= 1000 ? `${(vol / 1000).toFixed(1)}k` : vol.toFixed(0);
-                  })()}</p>
-                  <p className="text-[9px] text-muted-foreground/50">Volume ({weightUnit})</p>
+                    const totalExercises = isWT ? exercises.length : 1;
+                    return (
+                      <>
+                        <div className="text-center p-2 rounded-lg bg-blue-500/10 border border-blue-500/20">
+                          <p className="text-sm font-bold text-blue-400">{setsDone}<span className="text-muted-foreground/50 text-xs">/{totalSets}</span></p>
+                          <p className="text-[9px] text-muted-foreground/50">Sets Done</p>
+                        </div>
+                        <div className="text-center p-2 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
+                          <p className="text-sm font-bold text-emerald-400">{vol >= 1000 ? `${(vol / 1000).toFixed(1)}k` : vol.toFixed(0)}</p>
+                          <p className="text-[9px] text-muted-foreground/50">Volume ({weightUnit})</p>
+                        </div>
+                        <div className="text-center p-2 rounded-lg bg-amber-500/10 border border-amber-500/20">
+                          <p className="text-sm font-bold text-amber-400">{isWT ? totalExercises : 1}</p>
+                          <p className="text-[9px] text-muted-foreground/50">Exercises</p>
+                        </div>
+                      </>
+                    );
+                  })()}
                 </div>
-                <div className="text-center p-2 rounded-lg bg-amber-500/10 border border-amber-500/20">
-                  <p className="text-sm font-bold text-amber-400">{workoutStartTime ? `${Math.floor(workoutElapsed / 60)}:${String(workoutElapsed % 60).padStart(2, '0')}` : '0:00'}</p>
-                  <p className="text-[9px] text-muted-foreground/50">Elapsed</p>
-                </div>
-              </div>
+              </GlassCard>
 
-              {/* Discard Workout button */}
-              <div className="mb-4">
+              {/* Exercise Cards — Weight Training multi-exercise flow */}
+              {selectedWorkoutType === 'Weight Training' && exercises.length > 0 ? (
+                <div className="space-y-3">
+                  {exercises.map((ex, exIdx) => {
+                    // Find previous performance from allWorkouts
+                    const prevWorkout = allWorkouts
+                      .filter((w: any) => (w.workoutType === ex.name || w.workoutType === selectedWorkoutType) && w.muscleGroup === ex.muscleGroup && w.sets && w.reps && w.loadKg)
+                      .sort((a: any, b: any) => (b.date || '').localeCompare(a.date || ''))[0];
+                    const prevDisplay = prevWorkout ? `${prevWorkout.loadKg}kg × ${prevWorkout.reps}` : null;
+
+                    return (
+                      <motion.div
+                        key={exIdx}
+                        initial={{ opacity: 0, y: 16 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: exIdx * 0.08, duration: 0.3 }}
+                      >
+                        <GlassCard variant="glassmorphism" className="p-4">
+                          {/* Exercise header */}
+                          <div className="flex items-center gap-2 mb-3">
+                            <div className="flex-1 min-w-0">
+                              <Input
+                                value={ex.name}
+                                onChange={e => {
+                                  const newExercises = [...exercises];
+                                  newExercises[exIdx] = { ...newExercises[exIdx], name: e.target.value };
+                                  setExercises(newExercises);
+                                }}
+                                placeholder="Exercise name (e.g. Bench Press)"
+                                className="bg-transparent border-0 border-b border-border/30 rounded-none text-foreground font-semibold text-sm px-0 focus:ring-0 focus:border-blue-500/50"
+                              />
+                            </div>
+                            {/* Delete exercise button */}
+                            {exercises.length > 1 && (
+                              <button
+                                onClick={() => setExercises(prev => prev.filter((_, i) => i !== exIdx))}
+                                className="p-1.5 rounded-lg text-muted-foreground/30 hover:text-red-400 hover:bg-red-500/10 transition-all"
+                              >
+                                <Trash2 size={14} />
+                              </button>
+                            )}
+                          </div>
+
+                          {/* Muscle group tag */}
+                          <div className="flex flex-wrap gap-1.5 mb-3">
+                            {MUSCLE_GROUPS.map(mg => (
+                              <button
+                                key={mg}
+                                onClick={() => {
+                                  const newExercises = [...exercises];
+                                  newExercises[exIdx] = { ...newExercises[exIdx], muscleGroup: mg };
+                                  setExercises(newExercises);
+                                  if (exIdx === 0) setMuscleGroup(mg);
+                                }}
+                                className={`text-[10px] px-2 py-1 rounded-full border transition-all ${
+                                  ex.muscleGroup === mg
+                                    ? 'bg-amber-600/20 border-amber-500/40 text-amber-300'
+                                    : 'bg-accent/50 border-border/30 text-muted-foreground/50 hover:border-amber-500/20'
+                                }`}
+                              >
+                                {MUSCLE_GROUP_META[mg].icon} {MUSCLE_GROUP_META[mg].label}
+                              </button>
+                            ))}
+                          </div>
+
+                          {/* Previous performance comparison */}
+                          {prevDisplay && (
+                            <div className="flex items-center gap-2 mb-3 px-2.5 py-1.5 rounded-lg bg-blue-500/5 border border-blue-500/10">
+                              <TrendingUp size={12} className="text-blue-400/60" />
+                              <span className="text-[10px] text-muted-foreground/60">Previous:</span>
+                              <span className="text-[10px] text-blue-300 font-medium">{prevDisplay}</span>
+                              {ex.sets.some(s => s.done && s.weight && s.reps) && (() => {
+                                const lastDone = [...ex.sets].reverse().find(s => s.done && s.weight && s.reps);
+                                return lastDone ? (
+                                  <span className="text-[10px] text-emerald-300 font-medium ml-1">
+                                    → Current: {lastDone.weight}{weightUnit === 'kg' ? 'kg' : 'lbs'} × {lastDone.reps}
+                                  </span>
+                                ) : null;
+                              })()}
+                            </div>
+                          )}
+
+                          {/* Sets table */}
+                          <div className="mb-2">
+                            <div className="grid grid-cols-[2.5rem_1fr_1fr_2rem] gap-2 mb-1.5 px-1">
+                              <span className="text-[9px] text-muted-foreground/40 font-medium text-center uppercase">Set</span>
+                              <span className="text-[9px] text-muted-foreground/40 font-medium text-center uppercase">{weightUnit}</span>
+                              <span className="text-[9px] text-muted-foreground/40 font-medium text-center uppercase">Reps</span>
+                              <span className="text-[9px] text-muted-foreground/40 font-medium text-center uppercase">✓</span>
+                            </div>
+                            <div className="space-y-1">
+                              {ex.sets.map((set, setIdx) => (
+                                <motion.div
+                                  key={setIdx}
+                                  initial={{ opacity: 0, x: -8 }}
+                                  animate={{ opacity: 1, x: 0 }}
+                                  transition={{ duration: 0.12 }}
+                                  className={`grid grid-cols-[2.5rem_1fr_1fr_2rem] gap-2 items-center p-1.5 rounded-lg transition-all ${
+                                    set.done ? 'bg-emerald-500/8 border border-emerald-500/15' : 'bg-accent/30 border border-transparent'
+                                  }`}
+                                >
+                                  <span className="text-[11px] text-muted-foreground/50 font-medium text-center">{setIdx + 1}</span>
+                                  <Input
+                                    type="number"
+                                    value={set.weight}
+                                    onChange={e => {
+                                      const newExercises = [...exercises];
+                                      const newSets = [...newExercises[exIdx].sets];
+                                      newSets[setIdx] = { ...newSets[setIdx], weight: e.target.value };
+                                      newExercises[exIdx] = { ...newExercises[exIdx], sets: newSets };
+                                      setExercises(newExercises);
+                                    }}
+                                    placeholder="0"
+                                    className="bg-accent/50 border-border/30 text-foreground text-center text-sm h-8"
+                                  />
+                                  <Input
+                                    type="number"
+                                    value={set.reps}
+                                    onChange={e => {
+                                      const newExercises = [...exercises];
+                                      const newSets = [...newExercises[exIdx].sets];
+                                      newSets[setIdx] = { ...newSets[setIdx], reps: e.target.value };
+                                      newExercises[exIdx] = { ...newExercises[exIdx], sets: newSets };
+                                      setExercises(newExercises);
+                                    }}
+                                    placeholder="0"
+                                    className="bg-accent/50 border-border/30 text-foreground text-center text-sm h-8"
+                                  />
+                                  <button
+                                    onClick={() => {
+                                      const newExercises = [...exercises];
+                                      const newSets = [...newExercises[exIdx].sets];
+                                      newSets[setIdx] = { ...newSets[setIdx], done: !newSets[setIdx].done };
+                                      newExercises[exIdx] = { ...newExercises[exIdx], sets: newSets };
+                                      setExercises(newExercises);
+                                    }}
+                                    className={`flex items-center justify-center transition-all ${
+                                      set.done ? 'text-emerald-400' : 'text-muted-foreground/20 hover:text-muted-foreground/50'
+                                    }`}
+                                  >
+                                    {set.done ? <Check size={16} /> : <Circle size={16} />}
+                                  </button>
+                                </motion.div>
+                              ))}
+                            </div>
+                            <div className="flex items-center gap-2 mt-2">
+                              <button
+                                onClick={() => {
+                                  const newExercises = [...exercises];
+                                  newExercises[exIdx] = {
+                                    ...newExercises[exIdx],
+                                    sets: [...newExercises[exIdx].sets, { weight: '', reps: '', done: false }],
+                                  };
+                                  setExercises(newExercises);
+                                }}
+                                className="flex items-center gap-1 text-[11px] text-blue-400 hover:text-blue-300 transition-colors px-2 py-1.5 rounded-lg hover:bg-blue-500/10"
+                              >
+                                <Plus size={12} /> Add Set
+                              </button>
+                              {ex.sets.length > 1 && (
+                                <button
+                                  onClick={() => {
+                                    const newExercises = [...exercises];
+                                    newExercises[exIdx] = {
+                                      ...newExercises[exIdx],
+                                      sets: newExercises[exIdx].sets.slice(0, -1),
+                                    };
+                                    setExercises(newExercises);
+                                  }}
+                                  className="flex items-center gap-1 text-[11px] text-red-400/50 hover:text-red-400 transition-colors px-2 py-1.5 rounded-lg hover:bg-red-500/10"
+                                >
+                                  <X size={12} /> Remove Last
+                                </button>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Exercise notes */}
+                          <div className="mt-2">
+                            <button
+                              onClick={() => {
+                                const notes = prompt('Exercise notes:', ex.notes);
+                                if (notes !== null) {
+                                  const newExercises = [...exercises];
+                                  newExercises[exIdx] = { ...newExercises[exIdx], notes };
+                                  setExercises(newExercises);
+                                }
+                              }}
+                              className="w-full flex items-center gap-1.5 px-2 py-1.5 rounded-lg bg-accent/20 border border-dashed border-border/30 hover:border-blue-500/20 transition-all text-left"
+                            >
+                              <StickyNote size={11} className="text-muted-foreground/30" />
+                              {ex.notes ? (
+                                <span className="text-[10px] text-foreground/60 truncate">{ex.notes}</span>
+                              ) : (
+                                <span className="text-[10px] text-muted-foreground/30 italic">Add notes...</span>
+                              )}
+                            </button>
+                          </div>
+                        </GlassCard>
+                      </motion.div>
+                    );
+                  })}
+
+                  {/* + Add Exercise button */}
+                  <motion.button
+                    whileHover={{ scale: 1.01 }}
+                    whileTap={{ scale: 0.98 }}
+                    onClick={() => setExercises(prev => [...prev, { name: '', muscleGroup: 'chest', sets: [{ weight: '', reps: '', done: false }], notes: '' }])}
+                    className="w-full py-3 rounded-xl border-2 border-dashed border-blue-500/20 text-blue-400/60 hover:text-blue-400 hover:border-blue-500/40 hover:bg-blue-500/5 transition-all text-sm font-medium flex items-center justify-center gap-2"
+                  >
+                    <Plus size={16} /> Add Exercise
+                  </motion.button>
+                </div>
+              ) : selectedWorkoutType !== 'Weight Training' && (
+                /* Non-weight-training: simple duration-only flow */
+                <GlassCard variant="glassmorphism" className="p-4">
+                  <div className="flex items-center gap-2 mb-3">
+                    <div className="flex items-center gap-2 mb-2">
+                      <div className="h-px flex-1 bg-gradient-to-r from-blue-500/30 to-transparent" />
+                      <span className="text-[10px] font-medium text-blue-400/60 uppercase tracking-wider">Activity Details</span>
+                      <div className="h-px flex-1 bg-gradient-to-l from-blue-500/30 to-transparent" />
+                    </div>
+                  </div>
+                  <Input
+                    value={exerciseName}
+                    onChange={e => setExerciseName(e.target.value)}
+                    placeholder={selectedWorkoutType}
+                    className="bg-accent/50 border-border/50 text-foreground text-center font-medium mb-3"
+                  />
+                  {/* Duration */}
+                  <div className="mb-3">
+                    <Label className="text-muted-foreground text-xs mb-1.5 block flex items-center gap-1">
+                      <Clock size={12} /> Duration (min)
+                    </Label>
+                    <Input
+                      type="number"
+                      value={workoutDuration}
+                      onChange={e => setWorkoutDuration(e.target.value)}
+                      placeholder="e.g. 45"
+                      className="bg-accent/50 border-border/50 text-foreground"
+                    />
+                  </div>
+                  {/* Estimated calories display */}
+                  {estimatedBurn && (
+                    <div className="flex items-center gap-2 mb-3 px-3 py-2 rounded-lg bg-amber-500/10 border border-amber-500/20">
+                      <Flame size={14} className="text-amber-400" />
+                      <span className="text-sm text-amber-300 font-medium">~{estimatedBurn.estimatedCalories?.toFixed(0)} cal</span>
+                      <span className="text-xs text-amber-400/50">estimated burn</span>
+                    </div>
+                  )}
+                  {/* AI Estimate button */}
+                  <Button onClick={estimateBurn} disabled={aiBurnEstimating || !workoutDuration} variant="ghost" className="text-purple-400 border border-purple-500/20 w-full mb-3">
+                    {aiBurnEstimating ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <Sparkles className="w-4 h-4 mr-1" />}
+                    AI Estimate Calories
+                  </Button>
+                </GlassCard>
+              )}
+
+              {/* Bottom section: Duration (for WT), Notes, Finish, Rest Timer */}
+              <GlassCard variant="glassmorphism" className="p-4">
+                {/* Duration for Weight Training */}
+                {selectedWorkoutType === 'Weight Training' && (
+                  <div className="mb-4">
+                    <Label className="text-muted-foreground text-xs mb-1.5 block flex items-center gap-1">
+                      <Clock size={12} /> Total Duration (min)
+                    </Label>
+                    <Input
+                      type="number"
+                      value={workoutDuration}
+                      onChange={e => setWorkoutDuration(e.target.value)}
+                      placeholder="e.g. 45"
+                      className="bg-accent/50 border-border/50 text-foreground"
+                    />
+                  </div>
+                )}
+
+                {/* Estimated calories display for WT */}
+                {selectedWorkoutType === 'Weight Training' && estimatedBurn && (
+                  <div className="flex items-center gap-2 mb-3 px-3 py-2 rounded-lg bg-amber-500/10 border border-amber-500/20">
+                    <Flame size={14} className="text-amber-400" />
+                    <span className="text-sm text-amber-300 font-medium">~{estimatedBurn.estimatedCalories?.toFixed(0)} cal</span>
+                    <span className="text-xs text-amber-400/50">estimated burn</span>
+                  </div>
+                )}
+
+                {/* AI Estimate button for WT */}
+                {selectedWorkoutType === 'Weight Training' && (
+                  <Button onClick={estimateBurn} disabled={aiBurnEstimating || !workoutDuration} variant="ghost" className="text-purple-400 border border-purple-500/20 w-full mb-4">
+                    {aiBurnEstimating ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <Sparkles className="w-4 h-4 mr-1" />}
+                    AI Estimate Calories
+                  </Button>
+                )}
+
+                {/* Workout-level notes */}
+                <div className="mb-4">
+                  <button
+                    onClick={() => {
+                      const notes = prompt('Workout notes:', workoutNotes);
+                      if (notes !== null) setWorkoutNotes(notes);
+                    }}
+                    className="w-full flex items-center gap-2 px-3 py-2 rounded-lg bg-accent/30 border border-dashed border-border/50 hover:border-blue-500/30 transition-all text-left"
+                  >
+                    <StickyNote size={14} className="text-muted-foreground/50" />
+                    {workoutNotes ? (
+                      <span className="text-xs text-foreground/70 truncate">{workoutNotes}</span>
+                    ) : (
+                      <span className="text-xs text-muted-foreground/50 italic">Tap to add workout notes...</span>
+                    )}
+                  </button>
+                </div>
+
+                {/* Finish Workout button */}
+                <motion.button
+                  onClick={addWorkout}
+                  disabled={!workoutDuration}
+                  whileTap={{ scale: 0.97 }}
+                  className="w-full py-3.5 rounded-xl font-bold text-base text-white bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 transition-all shadow-lg shadow-blue-600/25 disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2 mb-4"
+                >
+                  {showWorkoutSuccess ? (
+                    <>
+                      <motion.div
+                        initial={{ scale: 0, rotate: -180 }}
+                        animate={{ scale: 1, rotate: 0 }}
+                        transition={{ type: 'spring', stiffness: 200, damping: 15 }}
+                      >
+                        <Check size={18} className="text-emerald-300" />
+                      </motion.div>
+                      <motion.span
+                        initial={{ opacity: 0, x: 10 }}
+                        animate={{ opacity: 1, x: 0 }}
+                      >
+                        WORKOUT SAVED!
+                      </motion.span>
+                    </>
+                  ) : (
+                    <>
+                      <Star size={18} className="fill-current" />
+                      FINISH WORKOUT
+                      <Star size={18} className="fill-current" />
+                    </>
+                  )}
+                </motion.button>
+
+                {/* Discard Workout */}
                 <Button
                   onClick={() => {
                     setWorkoutStep('type');
@@ -1677,6 +2144,7 @@ export default function FitnessClient() {
                     setWorkoutNotes('');
                     setWorkoutDuration('');
                     setEstimatedBurn(null);
+                    setExercises([]);
                     setRestTimerSeconds(90);
                     setRestTimerRunning(false);
                     setWorkoutStartTime(null);
@@ -1684,283 +2152,81 @@ export default function FitnessClient() {
                   }}
                   variant="ghost"
                   size="sm"
-                  className="text-red-400/60 hover:text-red-400 hover:bg-red-500/10 text-xs w-full border border-red-500/10"
+                  className="text-red-400/50 hover:text-red-400 hover:bg-red-500/10 text-xs w-full border border-red-500/10 mb-4"
                 >
                   <Trash2 size={12} className="mr-1" /> Discard Workout
                 </Button>
-              </div>
 
-              {/* Exercise name input */}
-              <div className="mb-4">
-                <div className="flex items-center gap-2 mb-2">
-                  <div className="h-px flex-1 bg-gradient-to-r from-blue-500/50 to-transparent" />
-                  <span className="text-xs font-medium text-blue-400 uppercase tracking-wider">Exercise</span>
-                  <div className="h-px flex-1 bg-gradient-to-l from-blue-500/50 to-transparent" />
-                </div>
-                <Input
-                  value={exerciseName}
-                  onChange={e => setExerciseName(e.target.value)}
-                  placeholder={selectedWorkoutType === 'Weight Training' ? 'e.g. Lat Pulldown' : selectedWorkoutType}
-                  className="bg-accent/50 border-border/50 text-foreground text-center font-medium"
-                />
-              </div>
-
-              {/* Muscle group selector for Weight Training */}
-              {selectedWorkoutType === 'Weight Training' && (
-                <div className="mb-4">
-                  <Label className="text-muted-foreground text-xs mb-1.5 block flex items-center gap-1">
-                    <Target size={12} /> Muscle Group
-                  </Label>
-                  <div className="flex flex-wrap gap-1.5">
-                    {MUSCLE_GROUPS.map(mg => (
-                      <button
-                        key={mg}
-                        onClick={() => setMuscleGroup(mg)}
-                        className={`text-xs px-3 py-1.5 rounded-full border transition-all ${
-                          muscleGroup === mg
-                            ? 'bg-blue-600/30 border-blue-500/50 text-blue-300'
-                            : 'bg-accent border-border text-muted-foreground hover:border-blue-500/30'
-                        }`}
-                      >
-                        {MUSCLE_GROUP_META[mg].icon} {MUSCLE_GROUP_META[mg].label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Sets table - Hevy style */}
-              {selectedWorkoutType === 'Weight Training' && (
-                <div className="mb-4">
-                  {/* Table header */}
-                  <div className="grid grid-cols-[2rem_1fr_1fr_2rem] gap-2 mb-2 px-1">
-                    <span className="text-[10px] text-muted-foreground/50 font-medium text-center">Set</span>
-                    <span className="text-[10px] text-muted-foreground/50 font-medium text-center">{weightUnit}</span>
-                    <span className="text-[10px] text-muted-foreground/50 font-medium text-center">Reps</span>
-                    <span className="text-[10px] text-muted-foreground/50 font-medium text-center">✓</span>
-                  </div>
-                  {/* Set rows */}
-                  <div className="space-y-1.5">
-                    {exerciseSets.map((set, idx) => (
-                      <motion.div
-                        key={idx}
-                        initial={{ opacity: 0, y: -8 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 0.15 }}
-                        className={`grid grid-cols-[2rem_1fr_1fr_2rem] gap-2 items-center p-1.5 rounded-lg transition-all ${
-                          set.done ? 'bg-emerald-500/10 border border-emerald-500/20' : 'bg-accent/40 border border-transparent'
-                        }`}
-                      >
-                        <span className="text-xs text-muted-foreground font-medium text-center">{idx + 1}</span>
-                        <Input
-                          type="number"
-                          value={set.weight}
-                          onChange={e => {
-                            const newSets = [...exerciseSets];
-                            newSets[idx] = { ...newSets[idx], weight: e.target.value };
-                            setExerciseSets(newSets);
-                          }}
-                          placeholder="0"
-                          className="bg-accent border-border/50 text-foreground text-center text-sm h-8"
+                {/* Rest Timer — Circular progress SVG */}
+                <div className="p-4 rounded-xl bg-accent/30 border border-border/30">
+                  <div className="flex items-center gap-4">
+                    <div className="relative w-16 h-16 shrink-0">
+                      <svg className="w-16 h-16 -rotate-90" viewBox="0 0 64 64">
+                        <circle cx="32" cy="32" r="28" fill="none" stroke="currentColor" strokeWidth="3" className="text-accent/50" />
+                        <circle
+                          cx="32" cy="32" r="28" fill="none"
+                          stroke={restTimerRunning ? (restTimerSeconds === 0 ? '#34d399' : '#fbbf24') : '#64748b'}
+                          strokeWidth="3"
+                          strokeLinecap="round"
+                          strokeDasharray={`${2 * Math.PI * 28}`}
+                          strokeDashoffset={`${2 * Math.PI * 28 * (1 - (restTimerRunning || restTimerSeconds > 0 ? restTimerSeconds / 90 : 0))}`}
+                          className="transition-all duration-1000"
                         />
-                        <Input
-                          type="number"
-                          value={set.reps}
-                          onChange={e => {
-                            const newSets = [...exerciseSets];
-                            newSets[idx] = { ...newSets[idx], reps: e.target.value };
-                            setExerciseSets(newSets);
-                          }}
-                          placeholder="0"
-                          className="bg-accent border-border/50 text-foreground text-center text-sm h-8"
-                        />
-                        <div className="flex items-center justify-center gap-0.5">
-                          <button
-                            onClick={() => {
-                              const newSets = [...exerciseSets];
-                              newSets[idx] = { ...newSets[idx], done: !newSets[idx].done };
-                              setExerciseSets(newSets);
-                            }}
-                            className={`transition-all ${
-                              set.done ? 'text-emerald-400' : 'text-muted-foreground/30 hover:text-muted-foreground/60'
-                            }`}
-                          >
-                            {set.done ? <Check size={16} /> : <Circle size={16} />}
-                          </button>
-                        </div>
-                      </motion.div>
-                    ))}
-                  </div>
-                  {/* Add Set + Remove last set buttons */}
-                  <div className="flex items-center gap-2 mt-2">
-                    <button
-                      onClick={() => setExerciseSets(prev => [...prev, { weight: '', reps: '', done: false }])}
-                      className="flex items-center gap-1 text-xs text-blue-400 hover:text-blue-300 transition-colors px-2 py-1.5 rounded-lg hover:bg-blue-500/10"
-                    >
-                      <Plus size={14} /> Add Set
-                    </button>
-                    {exerciseSets.length > 1 && (
-                      <button
-                        onClick={() => setExerciseSets(prev => prev.slice(0, -1))}
-                        className="flex items-center gap-1 text-xs text-red-400/60 hover:text-red-400 transition-colors px-2 py-1.5 rounded-lg hover:bg-red-500/10"
-                      >
-                        <X size={14} /> Remove Last
-                      </button>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {/* Duration */}
-              <div className="mb-4">
-                <Label className="text-muted-foreground text-xs mb-1.5 block flex items-center gap-1">
-                  <Clock size={12} /> Duration (min)
-                </Label>
-                <Input
-                  type="number"
-                  value={workoutDuration}
-                  onChange={e => setWorkoutDuration(e.target.value)}
-                  placeholder="e.g. 45"
-                  className="bg-accent/50 border-border/50 text-foreground"
-                />
-              </div>
-
-              {/* Estimated calories display */}
-              {estimatedBurn && (
-                <div className="flex items-center gap-2 mb-3 px-3 py-2 rounded-lg bg-amber-500/10 border border-amber-500/20">
-                  <Flame size={14} className="text-amber-400" />
-                  <span className="text-sm text-amber-300 font-medium">~{estimatedBurn.estimatedCalories?.toFixed(0)} cal</span>
-                  <span className="text-xs text-amber-400/50">estimated burn</span>
-                </div>
-              )}
-
-              {/* Workout notes */}
-              <div className="mb-4">
-                <button
-                  onClick={() => {
-                    const notes = prompt('Workout notes:', workoutNotes);
-                    if (notes !== null) setWorkoutNotes(notes);
-                  }}
-                  className="w-full flex items-center gap-2 px-3 py-2 rounded-lg bg-accent/30 border border-dashed border-border/50 hover:border-blue-500/30 transition-all text-left"
-                >
-                  <StickyNote size={14} className="text-muted-foreground/50" />
-                  {workoutNotes ? (
-                    <span className="text-xs text-foreground/70 truncate">{workoutNotes}</span>
-                  ) : (
-                    <span className="text-xs text-muted-foreground/50 italic">Tap to add notes...</span>
-                  )}
-                </button>
-              </div>
-
-              {/* AI Estimate button */}
-              <Button onClick={estimateBurn} disabled={aiBurnEstimating || !workoutDuration} variant="ghost" className="text-purple-400 border border-purple-500/20 w-full mb-4">
-                {aiBurnEstimating ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <Sparkles className="w-4 h-4 mr-1" />}
-                AI Estimate Calories Burned
-              </Button>
-
-              {/* Finish Workout button */}
-              <motion.button
-                onClick={addWorkout}
-                disabled={!workoutDuration}
-                whileTap={{ scale: 0.97 }}
-                className="w-full py-3.5 rounded-xl font-bold text-base text-white bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 transition-all shadow-lg shadow-blue-600/25 disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-              >
-                {showWorkoutSuccess ? (
-                  <>
-                    <motion.div
-                      initial={{ scale: 0, rotate: -180 }}
-                      animate={{ scale: 1, rotate: 0 }}
-                      transition={{ type: 'spring', stiffness: 200, damping: 15 }}
-                    >
-                      <Check size={18} className="text-emerald-300" />
-                    </motion.div>
-                    <motion.span
-                      initial={{ opacity: 0, x: 10 }}
-                      animate={{ opacity: 1, x: 0 }}
-                    >
-                      WORKOUT SAVED!
-                    </motion.span>
-                  </>
-                ) : (
-                  <>
-                    <Star size={18} className="fill-current" />
-                    FINISH WORKOUT
-                    <Star size={18} className="fill-current" />
-                  </>
-                )}
-              </motion.button>
-
-              {/* Rest Timer — Prominent with circular progress */}
-              <div className="mt-4 p-4 rounded-xl bg-accent/30 border border-border/30">
-                <div className="flex items-center gap-4">
-                  {/* Circular progress indicator */}
-                  <div className="relative w-16 h-16 shrink-0">
-                    <svg className="w-16 h-16 -rotate-90" viewBox="0 0 64 64">
-                      <circle cx="32" cy="32" r="28" fill="none" stroke="currentColor" strokeWidth="3" className="text-accent/50" />
-                      <circle
-                        cx="32" cy="32" r="28" fill="none"
-                        stroke={restTimerRunning ? (restTimerSeconds === 0 ? '#34d399' : '#fbbf24') : '#64748b'}
-                        strokeWidth="3"
-                        strokeLinecap="round"
-                        strokeDasharray={`${2 * Math.PI * 28}`}
-                        strokeDashoffset={`${2 * Math.PI * 28 * (1 - (restTimerRunning || restTimerSeconds > 0 ? restTimerSeconds / 90 : 0))}`}
-                        className="transition-all duration-1000"
-                      />
-                    </svg>
-                    <div className="absolute inset-0 flex items-center justify-center">
-                      <span className={`text-sm font-mono font-bold ${
-                        restTimerSeconds === 0 ? 'text-emerald-400' : restTimerRunning ? 'text-amber-400' : 'text-muted-foreground'
-                      }`}>
-                        {Math.floor(restTimerSeconds / 60)}:{String(restTimerSeconds % 60).padStart(2, '0')}
+                      </svg>
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <span className={`text-sm font-mono font-bold ${
+                          restTimerSeconds === 0 ? 'text-emerald-400' : restTimerRunning ? 'text-amber-400' : 'text-muted-foreground'
+                        }`}>
+                          {Math.floor(restTimerSeconds / 60)}:{String(restTimerSeconds % 60).padStart(2, '0')}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="flex-1 space-y-2">
+                      <span className="text-xs text-muted-foreground flex items-center gap-1.5">
+                        <Timer size={13} className="text-blue-400" /> Rest Timer
                       </span>
-                    </div>
-                  </div>
-
-                  <div className="flex-1 space-y-2">
-                    <span className="text-xs text-muted-foreground flex items-center gap-1.5">
-                      <Timer size={13} className="text-blue-400" /> Rest Timer
-                    </span>
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <button
-                        onClick={() => setRestTimerRunning(!restTimerRunning)}
-                        className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                          restTimerRunning
-                            ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
-                            : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
-                        }`}
-                      >
-                        {restTimerRunning ? <Pause size={12} /> : <Play size={12} />}
-                        {restTimerRunning ? 'Pause' : 'Start'}
-                      </button>
-                      <button
-                        onClick={() => { setRestTimerSeconds(90); setRestTimerRunning(false); }}
-                        className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium bg-accent border border-border text-muted-foreground hover:text-foreground transition-all"
-                      >
-                        <RotateCcw size={12} /> Reset
-                      </button>
-                    </div>
-                    <div className="flex gap-1">
-                      {[60, 90, 120, 180].map(sec => (
+                      <div className="flex items-center gap-2 flex-wrap">
                         <button
-                          key={sec}
-                          onClick={() => { setRestTimerSeconds(sec); setRestTimerRunning(false); }}
-                          className={`px-2 py-1 rounded text-[10px] transition-all ${
-                            restTimerSeconds === sec && !restTimerRunning
-                              ? 'bg-blue-600/20 text-blue-300 border border-blue-500/30'
-                              : 'bg-accent/50 text-muted-foreground/50 hover:text-muted-foreground'
+                          onClick={() => setRestTimerRunning(!restTimerRunning)}
+                          className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                            restTimerRunning
+                              ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+                              : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
                           }`}
                         >
-                          {sec}s
+                          {restTimerRunning ? <Pause size={12} /> : <Play size={12} />}
+                          {restTimerRunning ? 'Pause' : 'Start'}
                         </button>
-                      ))}
+                        <button
+                          onClick={() => { setRestTimerSeconds(90); setRestTimerRunning(false); }}
+                          className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium bg-accent border border-border text-muted-foreground hover:text-foreground transition-all"
+                        >
+                          <RotateCcw size={12} /> Reset
+                        </button>
+                      </div>
+                      <div className="flex gap-1">
+                        {[60, 90, 120, 180].map(sec => (
+                          <button
+                            key={sec}
+                            onClick={() => { setRestTimerSeconds(sec); setRestTimerRunning(false); }}
+                            className={`px-2 py-1 rounded text-[10px] transition-all ${
+                              restTimerSeconds === sec && !restTimerRunning
+                                ? 'bg-blue-600/20 text-blue-300 border border-blue-500/30'
+                                : 'bg-accent/50 text-muted-foreground/50 hover:text-muted-foreground'
+                            }`}
+                          >
+                            {sec}s
+                          </button>
+                        ))}
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
-            </GlassCard>
+              </GlassCard>
+            </>
           )}
 
-          {/* Daily workout log card (same collapsible pattern as nutrition) */}
+          {/* Daily workout log card */}
           {(() => {
             const logsForDay = selectedWorkoutDate === today ? workouts : (workoutHistory[selectedWorkoutDate] || []);
             const ended = selectedWorkoutDate < today;
@@ -1970,20 +2236,19 @@ export default function FitnessClient() {
             const totalMin = logsForDay.reduce((a: number, w: any) => a + (w.duration || 0), 0);
 
             return (
-              <GlassCard className="overflow-hidden">
+              <GlassCard variant="glassmorphism" className="overflow-hidden">
                 <div
-                  className="p-3 flex items-center justify-between cursor-pointer"
-                  style={{ minHeight: 56 }}
+                  className="p-4 flex items-center justify-between cursor-pointer"
                   onClick={() => setExpandedWorkoutDays(prev => ({ ...prev, [selectedWorkoutDate]: !isExpanded }))}
                 >
                   <div className="flex items-center gap-2">
                     <Dumbbell size={14} className="text-blue-400" />
-                    <span className="text-sm font-medium text-foreground">{dayLabel}</span>
-                    <span className="text-xs text-muted-foreground">{logsForDay.length} workouts</span>
+                    <span className="text-sm font-semibold text-foreground">{dayLabel}</span>
+                    <span className="text-xs text-muted-foreground/60">{logsForDay.length} workout{logsForDay.length !== 1 ? 's' : ''}</span>
                   </div>
                   <div className="flex items-center gap-3">
-                    <span className="text-xs text-amber-400 font-medium">{totalCal.toFixed(0)} cal</span>
-                    <span className="text-[10px] text-muted-foreground">{totalMin}min</span>
+                    {totalCal > 0 && <span className="text-xs text-amber-400 font-medium">{totalCal.toFixed(0)} cal</span>}
+                    {totalMin > 0 && <span className="text-[10px] text-muted-foreground">{totalMin}min</span>}
                     <motion.div animate={{ rotate: isExpanded ? 180 : 0 }} transition={{ duration: 0.2 }}>
                       <ChevronDown size={16} className="text-muted-foreground/50" />
                     </motion.div>
@@ -1998,27 +2263,38 @@ export default function FitnessClient() {
                       transition={{ duration: 0.2 }}
                       className="overflow-hidden"
                     >
-                      <div className="px-3 pb-3 border-t border-border/30 space-y-2 pt-2">
+                      <div className="px-4 pb-4 border-t border-border/20 space-y-2 pt-3">
                         {logsForDay.length === 0 && (
-                          <p className="text-xs text-muted-foreground/50 italic text-center py-3">No workouts logged</p>
+                          <p className="text-xs text-muted-foreground/40 italic text-center py-2">No workouts logged</p>
                         )}
-                        {logsForDay.map((w: any) => (
-                          <div key={w.id} className="flex items-center justify-between py-1.5 px-2 rounded-lg bg-accent/30">
-                            <div className="flex-1 min-w-0">
-                              <p className="text-xs font-medium text-foreground">{w.workoutType}</p>
-                              <p className="text-[10px] text-muted-foreground/60">
-                                {w.duration}min · {w.estimatedCalories?.toFixed(0)} cal
-                                {w.workoutType === 'Weight Training' && w.sets && ` · ${w.sets}×${w.reps} @ ${w.loadKg}kg`}
-                                {w.workoutType === 'Weight Training' && w.muscleGroup && ` · ${MUSCLE_GROUP_META[w.muscleGroup]?.label || w.muscleGroup}`}
-                              </p>
+                        {logsForDay.map((w: any) => {
+                          const isPlanned = w.notes && typeof w.notes === 'string' && w.notes.includes('[PLANNED]');
+                          return (
+                            <div key={w.id} className="flex items-center justify-between py-2 px-3 rounded-xl bg-accent/20 border border-border/10">
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-1.5">
+                                  <p className="text-xs font-medium text-foreground">{w.workoutType}</p>
+                                  {isPlanned && (
+                                    <span className="text-[8px] bg-blue-500/15 text-blue-300 px-1.5 py-0.5 rounded-full font-medium border border-blue-500/20">Planned</span>
+                                  )}
+                                  {w.muscleGroup && MUSCLE_GROUP_META[w.muscleGroup] && (
+                                    <span className="text-[9px] text-muted-foreground/40">{MUSCLE_GROUP_META[w.muscleGroup].icon} {MUSCLE_GROUP_META[w.muscleGroup].label}</span>
+                                  )}
+                                </div>
+                                <p className="text-[10px] text-muted-foreground/50 mt-0.5">
+                                  {w.duration}min · {w.estimatedCalories?.toFixed(0)} cal
+                                  {w.sets && w.reps && ` · ${w.sets}×${w.reps}`}
+                                  {w.loadKg && ` @ ${w.loadKg}kg`}
+                                </p>
+                              </div>
+                              {selectedWorkoutDate === today && (
+                                <button onClick={() => deleteWorkout(w.id)} className="text-muted-foreground/30 hover:text-red-400 ml-2 shrink-0 p-1 rounded-lg hover:bg-red-500/10 transition-all">
+                                  <Trash2 size={12} />
+                                </button>
+                              )}
                             </div>
-                            {selectedWorkoutDate === today && (
-                              <button onClick={() => deleteWorkout(w.id)} className="text-muted-foreground/50 hover:text-red-400 ml-2 shrink-0">
-                                <Trash2 size={13} />
-                              </button>
-                            )}
-                          </div>
-                        ))}
+                          );
+                        })}
                       </div>
                     </motion.div>
                   )}
@@ -2027,18 +2303,17 @@ export default function FitnessClient() {
             );
           })()}
 
-          {/* Tomorrow's Planned Workout Section */}
-          <GlassCard className="overflow-hidden">
+          {/* Tomorrow's Planned Workout Section — cleaner design */}
+          <GlassCard variant="glassmorphism" className="overflow-hidden">
             <div
-              className="p-3 flex items-center justify-between cursor-pointer"
-              style={{ minHeight: 52 }}
+              className="p-4 flex items-center justify-between cursor-pointer"
               onClick={() => setTomorrowPlanExpanded(!tomorrowPlanExpanded)}
             >
               <div className="flex items-center gap-2">
                 <CalendarCheck size={14} className="text-emerald-400" />
-                <span className="text-sm font-medium text-foreground">Tomorrow&apos;s Workout</span>
+                <span className="text-sm font-semibold text-foreground">Tomorrow&apos;s Plan</span>
                 {tomorrowWorkoutPlans.length > 0 && (
-                  <span className="text-[10px] bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded-full font-medium">
+                  <span className="text-[9px] bg-emerald-500/15 text-emerald-300 px-2 py-0.5 rounded-full font-medium border border-emerald-500/20">
                     {tomorrowWorkoutPlans.length} planned
                   </span>
                 )}
@@ -2056,37 +2331,41 @@ export default function FitnessClient() {
                   transition={{ duration: 0.2 }}
                   className="overflow-hidden"
                 >
-                  <div className="px-3 pb-3 border-t border-border/30 pt-3 space-y-3">
-                    <p className="text-xs text-muted-foreground/50 italic text-center">Plan your workout for tomorrow</p>
-
-                    {/* Simplified workout type selector */}
+                  <div className="px-4 pb-4 border-t border-border/20 pt-3 space-y-3">
+                    {/* Simplified workout type selector with icons */}
                     {!tomorrowPlanType ? (
-                      <div className="grid grid-cols-3 sm:grid-cols-4 gap-1.5">
-                        {WEIGHT_TYPES.map(type => (
-                          <button
-                            key={type}
-                            onClick={() => setTomorrowPlanType(type)}
-                            className="p-2 rounded-lg bg-accent/50 border border-border/50 hover:border-emerald-500/30 hover:bg-emerald-600/5 transition-all text-left"
-                          >
-                            <p className="text-[11px] font-medium text-foreground truncate">{type}</p>
-                          </button>
-                        ))}
+                      <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+                        {WEIGHT_TYPES.map(type => {
+                          const meta = WORKOUT_TYPE_META[type] || WORKOUT_TYPE_META['Other'];
+                          return (
+                            <motion.button
+                              key={type}
+                              whileHover={{ scale: 1.03 }}
+                              whileTap={{ scale: 0.97 }}
+                              onClick={() => setTomorrowPlanType(type)}
+                              className="p-2.5 rounded-xl bg-accent/30 border border-border/30 hover:border-emerald-500/30 hover:bg-emerald-600/5 transition-all text-left"
+                            >
+                              <span className="text-sm">{meta.icon}</span>
+                              <p className="text-[10px] font-medium text-foreground truncate mt-0.5">{type}</p>
+                            </motion.button>
+                          );
+                        })}
                       </div>
                     ) : (
                       <div className="space-y-3">
                         {/* Muscle group for Weight Training */}
                         {tomorrowPlanType === 'Weight Training' && (
                           <div>
-                            <Label className="text-muted-foreground text-[10px] mb-1 block">Muscle Group</Label>
-                            <div className="flex flex-wrap gap-1">
+                            <Label className="text-muted-foreground text-[10px] mb-1.5 block">Muscle Group</Label>
+                            <div className="flex flex-wrap gap-1.5">
                               {MUSCLE_GROUPS.map(mg => (
                                 <button
                                   key={mg}
                                   onClick={() => setTomorrowPlanMuscle(mg)}
-                                  className={`text-[10px] px-2 py-1 rounded-full border transition-all ${
+                                  className={`text-[10px] px-2.5 py-1 rounded-full border transition-all ${
                                     tomorrowPlanMuscle === mg
                                       ? 'bg-emerald-600/20 border-emerald-500/40 text-emerald-300'
-                                      : 'bg-accent/50 border-border/50 text-muted-foreground hover:border-emerald-500/20'
+                                      : 'bg-accent/40 border-border/30 text-muted-foreground/50 hover:border-emerald-500/20'
                                   }`}
                                 >
                                   {MUSCLE_GROUP_META[mg].icon} {MUSCLE_GROUP_META[mg].label}
@@ -2097,11 +2376,14 @@ export default function FitnessClient() {
                         )}
 
                         {/* Estimated duration hint */}
-                        <div className="flex items-center gap-2 px-2 py-1.5 rounded-lg bg-accent/30 border border-border/30">
+                        <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-accent/20 border border-border/20">
                           <Clock size={12} className="text-emerald-400/60" />
-                          <span className="text-[10px] text-muted-foreground">
-                            Est. {tomorrowPlanType === 'Weight Training' ? '45-60' : tomorrowPlanType === 'HIIT' ? '20-30' : tomorrowPlanType === 'Running' || tomorrowPlanType === 'Cycling' ? '30-45' : '30-45'} min
+                          <span className="text-[10px] text-muted-foreground/60">
+                            Est. {tomorrowPlanType === 'Weight Training' ? '45-60' : tomorrowPlanType === 'HIIT' ? '20-30' : '30-45'} min
                           </span>
+                          <span className="text-[10px] text-muted-foreground/40">·</span>
+                          <Flame size={10} className="text-amber-400/50" />
+                          <span className="text-[10px] text-muted-foreground/60">{WORKOUT_TYPE_META[tomorrowPlanType]?.estCalPerMin || '5-7'} cal/min</span>
                         </div>
 
                         <div className="flex gap-2">
@@ -2137,31 +2419,35 @@ export default function FitnessClient() {
                     {/* Show planned workouts */}
                     {tomorrowWorkoutPlans.length > 0 && (
                       <div className="space-y-1.5">
-                        <div className="h-px bg-border/30" />
-                        {tomorrowWorkoutPlans.map((plan: any, idx: number) => (
-                          <div key={idx} className="flex items-center justify-between py-1.5 px-2.5 rounded-lg bg-emerald-500/5 border border-emerald-500/10">
-                            <div className="flex items-center gap-2">
-                              <span className="text-[10px] bg-emerald-500/20 text-emerald-300 px-1.5 py-0.5 rounded font-medium">Planned</span>
-                              <span className="text-xs text-foreground font-medium">{plan.type}</span>
-                              {plan.muscleGroup && (
-                                <span className="text-[10px] text-muted-foreground">
-                                  {MUSCLE_GROUP_META[plan.muscleGroup]?.icon} {MUSCLE_GROUP_META[plan.muscleGroup]?.label}
-                                </span>
-                              )}
+                        <div className="h-px bg-border/20" />
+                        {tomorrowWorkoutPlans.map((plan: any, idx: number) => {
+                          const planMeta = WORKOUT_TYPE_META[plan.type] || WORKOUT_TYPE_META['Other'];
+                          return (
+                            <div key={idx} className="flex items-center justify-between py-2 px-3 rounded-xl bg-emerald-500/5 border border-emerald-500/10">
+                              <div className="flex items-center gap-2">
+                                <span className="text-sm">{planMeta.icon}</span>
+                                <span className="text-[9px] bg-emerald-500/15 text-emerald-300 px-1.5 py-0.5 rounded-full font-medium border border-emerald-500/15">Planned</span>
+                                <span className="text-xs text-foreground font-medium">{plan.type}</span>
+                                {plan.muscleGroup && (
+                                  <span className="text-[10px] text-muted-foreground/50">
+                                    {MUSCLE_GROUP_META[plan.muscleGroup]?.icon} {MUSCLE_GROUP_META[plan.muscleGroup]?.label}
+                                  </span>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <span className="text-[10px] text-muted-foreground/40">{plan.estDuration} min</span>
+                                <button
+                                  onClick={() => setTomorrowWorkoutPlans(prev => prev.filter((_: any, i: number) => i !== idx))}
+                                  className="text-muted-foreground/20 hover:text-red-400 transition-colors p-0.5 rounded hover:bg-red-500/10"
+                                >
+                                  <X size={12} />
+                                </button>
+                              </div>
                             </div>
-                            <div className="flex items-center gap-2">
-                              <span className="text-[10px] text-muted-foreground/50">{plan.estDuration} min</span>
-                              <button
-                                onClick={() => setTomorrowWorkoutPlans(prev => prev.filter((_: any, i: number) => i !== idx))}
-                                className="text-muted-foreground/30 hover:text-red-400 transition-colors"
-                              >
-                                <X size={12} />
-                              </button>
-                            </div>
-                          </div>
-                        ))}
-                        <p className="text-[10px] text-muted-foreground/30 text-center italic">
-                          Planned workouts will appear here tomorrow
+                          );
+                        })}
+                        <p className="text-[9px] text-muted-foreground/25 text-center italic mt-1">
+                          Auto-migrates to today&apos;s log at midnight
                         </p>
                       </div>
                     )}
@@ -2171,9 +2457,9 @@ export default function FitnessClient() {
             </AnimatePresence>
           </GlassCard>
 
-          {/* Past 7 days workout history */}
+          {/* Past 7 days workout history — cleaner with Planned badges */}
           <div className="space-y-2">
-            <p className="text-xs text-muted-foreground/50 px-1">Past 7 Days</p>
+            <p className="text-xs text-muted-foreground/40 px-1 font-medium uppercase tracking-wider">Past 7 Days</p>
             {Array.from({ length: 7 }, (_, i) => {
               const d = new Date(); d.setDate(d.getDate() - (i + 1));
               return getLocalDateStr(d);
@@ -2188,20 +2474,21 @@ export default function FitnessClient() {
                 <GlassCard key={dateStr} className="overflow-hidden">
                   <div
                     className="p-3 flex items-center justify-between cursor-pointer"
-                    style={{ minHeight: 52 }}
+                    style={{ minHeight: 48 }}
                     onClick={() => setExpandedWorkoutDays(prev => ({ ...prev, [dateStr]: !isExp }))}
                   >
                     <div className="flex items-center gap-2">
-                      <Dumbbell size={13} className="text-muted-foreground/50" />
+                      <Dumbbell size={12} className="text-muted-foreground/30" />
                       <span className="text-sm text-foreground">{label}</span>
-                      {logs.length === 0 && <span className="text-xs text-muted-foreground/40 italic">No workouts</span>}
+                      {logs.length === 0 && <span className="text-xs text-muted-foreground/30 italic">No workouts</span>}
+                      {logs.length > 0 && <span className="text-[10px] text-muted-foreground/40">{logs.length} session{logs.length !== 1 ? 's' : ''}</span>}
                     </div>
                     {logs.length > 0 && (
-                      <div className="flex items-center gap-3">
-                        <span className="text-xs text-amber-400 font-medium">{totalC.toFixed(0)} cal</span>
-                        <span className="text-[10px] text-muted-foreground">{totalM}min · {logs.length} sessions</span>
+                      <div className="flex items-center gap-2">
+                        {totalC > 0 && <span className="text-xs text-amber-400/70 font-medium">{totalC.toFixed(0)} cal</span>}
+                        {totalM > 0 && <span className="text-[10px] text-muted-foreground/40">{totalM}min</span>}
                         <motion.div animate={{ rotate: isExp ? 180 : 0 }} transition={{ duration: 0.2 }}>
-                          <ChevronDown size={15} className="text-muted-foreground/50" />
+                          <ChevronDown size={14} className="text-muted-foreground/40" />
                         </motion.div>
                       </div>
                     )}
@@ -2209,16 +2496,25 @@ export default function FitnessClient() {
                   <AnimatePresence>
                     {isExp && logs.length > 0 && (
                       <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.2 }} className="overflow-hidden">
-                        <div className="px-3 pb-3 border-t border-border/30 space-y-1 pt-2">
-                          {logs.map((w: any) => (
-                            <div key={w.id} className="py-1.5 px-2 rounded-lg bg-accent/30">
-                              <p className="text-xs font-medium text-foreground">{w.workoutType}</p>
-                              <p className="text-[10px] text-muted-foreground/60">
-                                {w.duration}min · {w.estimatedCalories?.toFixed(0)} cal
-                                {w.workoutType === 'Weight Training' && w.sets && ` · ${w.sets}×${w.reps} @ ${w.loadKg}kg`}
-                              </p>
-                            </div>
-                          ))}
+                        <div className="px-3 pb-3 border-t border-border/20 space-y-1 pt-2">
+                          {logs.map((w: any) => {
+                            const isPlanned = w.notes && typeof w.notes === 'string' && w.notes.includes('[PLANNED]');
+                            return (
+                              <div key={w.id} className="py-1.5 px-2.5 rounded-lg bg-accent/20 border border-border/5">
+                                <div className="flex items-center gap-1.5">
+                                  <p className="text-xs font-medium text-foreground">{w.workoutType}</p>
+                                  {isPlanned && (
+                                    <span className="text-[7px] bg-blue-500/15 text-blue-300 px-1 py-0.5 rounded font-medium">Planned</span>
+                                  )}
+                                </div>
+                                <p className="text-[10px] text-muted-foreground/50">
+                                  {w.duration}min · {w.estimatedCalories?.toFixed(0)} cal
+                                  {w.sets && w.reps && ` · ${w.sets}×${w.reps}`}
+                                  {w.loadKg && ` @ ${w.loadKg}kg`}
+                                </p>
+                              </div>
+                            );
+                          })}
                         </div>
                       </motion.div>
                     )}
@@ -2248,6 +2544,7 @@ export default function FitnessClient() {
             onAddWorkout={handleTrackerAddWorkout}
             onEditWorkout={handleTrackerEditWorkout}
             onUpdateNotes={handleTrackerUpdateNotes}
+            allWorkouts={allWorkoutsDeduped}
           />
 
           {/* Calorie Balance Chart */}

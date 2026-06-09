@@ -3,7 +3,11 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
-import { Plus, Trash2, Sparkles, Check, Play, Pause, RotateCcw, Send, Bot, Loader2, ChevronDown, Moon, MessageSquare, AlertTriangle, CircleDashed, X, SkipForward, Clock } from 'lucide-react';
+import {
+  Plus, Trash2, Sparkles, Check, Play, Pause, RotateCcw, Send, Bot, Loader2,
+  ChevronDown, ChevronRight, Moon, MessageSquare, AlertTriangle, CircleDashed,
+  X, SkipForward, Clock, ArrowUpDown, Calendar, Zap, Flag
+} from 'lucide-react';
 import { GlassCard } from '@/components/glass-card';
 import { AIMessage } from '@/components/ai-message';
 import { SelectPill } from '@/components/select-pill';
@@ -15,8 +19,11 @@ import { useUserStore } from '@/stores/user-store';
 import { t } from '@/lib/i18n';
 
 const CATEGORIES = ['work', 'personal', 'health', 'learning', 'other'];
+const PRIORITIES = ['low', 'medium', 'high'] as const;
+type Priority = typeof PRIORITIES[number];
 
-/** Sort tasks by fromTime ascending; tasks without a time go to the bottom */
+// ── Helper functions ──
+
 function sortByTime(tasks: any[]): any[] {
   return [...tasks].sort((a, b) => {
     if (a.fromTime && b.fromTime) return a.fromTime.localeCompare(b.fromTime);
@@ -39,7 +46,6 @@ function isAfter7PM(): boolean {
   return now.getHours() >= 19;
 }
 
-/** Returns YYYY-MM-DD in the user's LOCAL timezone (not UTC) */
 function getLocalDateStr(offsetDays = 0): string {
   const d = new Date();
   d.setDate(d.getDate() + offsetDays);
@@ -49,58 +55,433 @@ function getLocalDateStr(offsetDays = 0): string {
   return `${year}-${month}-${day}`;
 }
 
-// ── Static components (moved outside render to satisfy react-hooks/static-components) ──
+// ── StatusChip ──
 
-function StatusIcon({ status }: { status: string }) {
-  if (status === 'completed') return <Check size={12} className="text-white" />;
-  if (status === 'in_progress') return <Play size={10} className="text-blue-400" />;
-  if (status === 'partially_completed') return <CircleDashed size={12} className="text-amber-400" />;
-  if (status === 'missed') return <AlertTriangle size={12} className="text-red-400" />;
-  if (status === 'skipped') return <SkipForward size={12} className="text-zinc-400" />;
-  return null;
+const STATUS_STYLES: Record<string, string> = {
+  pending: 'bg-slate-500/15 text-slate-400 border-slate-500/25',
+  in_progress: 'bg-amber-500/15 text-amber-400 border-amber-500/25',
+  completed: 'bg-emerald-500/15 text-emerald-400 border-emerald-500/25',
+  partially_completed: 'bg-orange-500/15 text-orange-400 border-orange-500/25',
+  missed: 'bg-red-500/15 text-red-400 border-red-500/25',
+  skipped: 'bg-zinc-500/15 text-zinc-400 border-zinc-500/25',
+};
+
+const STATUS_LABELS: Record<string, string> = {
+  pending: 'Planned',
+  in_progress: 'In Progress',
+  completed: 'Done',
+  partially_completed: 'Partial',
+  missed: 'Missed',
+  skipped: 'Skipped',
+};
+
+function StatusChip({ status, onClick, readOnly }: { status: string; onClick?: () => void; readOnly?: boolean }) {
+  return (
+    <button
+      onClick={onClick}
+      disabled={readOnly}
+      className={`inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-full border transition-colors ${STATUS_STYLES[status] || STATUS_STYLES.pending} ${onClick ? 'cursor-pointer hover:opacity-80' : 'cursor-default'}`}
+    >
+      {status === 'pending' && <CircleDashed size={9} />}
+      {status === 'in_progress' && <Play size={8} />}
+      {status === 'completed' && <Check size={9} />}
+      {status === 'partially_completed' && <CircleDashed size={9} />}
+      {status === 'missed' && <AlertTriangle size={9} />}
+      {status === 'skipped' && <SkipForward size={9} />}
+      {STATUS_LABELS[status] || status}
+    </button>
+  );
 }
 
-function StatusBadge({ status }: { status: string }) {
-  const styles: Record<string, string> = {
-    pending: 'bg-slate-600/20 text-slate-400',
-    in_progress: 'bg-blue-600/20 text-blue-400',
-    completed: 'bg-green-600/20 text-green-400',
-    partially_completed: 'bg-amber-600/20 text-amber-400',
-    missed: 'bg-red-600/20 text-red-400',
-    skipped: 'bg-zinc-600/20 text-zinc-400',
-  };
-  const labels: Record<string, string> = {
-    pending: 'Pending',
-    in_progress: 'In Progress',
-    completed: 'Done',
-    partially_completed: 'Partial',
-    missed: 'Missed',
-    skipped: 'Skipped',
-  };
-  return <span className={`text-[10px] px-2 py-0.5 rounded-full ${styles[status] || styles.pending}`}>{labels[status] || status}</span>;
+// ── PriorityChip ──
+
+const PRIORITY_STYLES: Record<string, string> = {
+  low: 'bg-zinc-500/15 text-zinc-400 border-zinc-500/25',
+  medium: 'bg-sky-500/15 text-sky-400 border-sky-500/25',
+  high: 'bg-red-500/15 text-red-400 border-red-500/25',
+};
+
+const PRIORITY_LABELS: Record<string, string> = {
+  low: 'Low',
+  medium: 'Med',
+  high: 'High',
+};
+
+function PriorityChip({ priority, onClick, readOnly }: { priority: string; onClick?: () => void; readOnly?: boolean }) {
+  return (
+    <button
+      onClick={onClick}
+      disabled={readOnly}
+      className={`inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-full border transition-colors ${PRIORITY_STYLES[priority] || PRIORITY_STYLES.medium} ${onClick ? 'cursor-pointer hover:opacity-80' : 'cursor-default'}`}
+    >
+      <Flag size={8} />
+      {PRIORITY_LABELS[priority] || 'Med'}
+    </button>
+  );
 }
 
-interface TaskCardProps {
+// ── TaskTableHeader ──
+
+function TaskTableHeader() {
+  return (
+    <div className="grid grid-cols-[28px_1fr_80px_56px_64px_90px_36px] sm:grid-cols-[28px_1fr_90px_60px_70px_100px_36px] gap-2 px-3 py-2 border-b border-border/30 items-center text-[10px] font-medium text-muted-foreground/60 uppercase tracking-wider">
+      <span />
+      <span>Task</span>
+      <span>Status</span>
+      <span>Priority</span>
+      <span>Category</span>
+      <span>Time</span>
+      <span>XP</span>
+    </div>
+  );
+}
+
+// ── ExpandedTaskDetails ──
+
+function ExpandedTaskDetails({
+  task,
+  currentTab,
+  onUpdateTaskStatus,
+  onSetReflectionModal,
+  onDeleteTask,
+  onRefresh,
+}: {
   task: any;
   currentTab: 'today' | 'tomorrow';
+  onUpdateTaskStatus: (taskId: string, newStatus: string, currentTab: 'today' | 'tomorrow') => void;
+  onSetReflectionModal: (modal: { taskId: string; title: string; status: string } | null) => void;
+  onDeleteTask: (id: string, currentTab: 'today' | 'tomorrow') => void;
+  onRefresh: (tab: 'today' | 'tomorrow') => void;
+}) {
+  const [editTitle, setEditTitle] = useState(task.title);
+  const [editDesc, setEditDesc] = useState(task.description || '');
+  const [editReflection, setEditReflection] = useState(task.reflectionNote || '');
+  const [showReflectionInput, setShowReflectionInput] = useState(false);
+  const isMissed = task.status === 'missed';
+  const isPartial = task.status === 'partially_completed';
+  const isSkipped = task.status === 'skipped';
+
+  async function saveField(field: string, value: string) {
+    if (!value.trim() && field !== 'description') return;
+    try {
+      await fetch('/api/time/tasks', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: task.id, [field]: value.trim() }),
+      });
+      onRefresh(currentTab);
+    } catch {}
+  }
+
+  async function saveReflection() {
+    if (!editReflection.trim()) return;
+    try {
+      await fetch('/api/time/tasks', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: task.id, reflectionNote: editReflection.trim() }),
+      });
+      toast.success('Reflection saved');
+      onRefresh(currentTab);
+      setShowReflectionInput(false);
+    } catch {}
+  }
+
+  return (
+    <motion.div
+      initial={{ height: 0, opacity: 0 }}
+      animate={{ height: 'auto', opacity: 1 }}
+      exit={{ height: 0, opacity: 0 }}
+      transition={{ duration: 0.2 }}
+      className="overflow-hidden"
+    >
+      <div className="px-3 pb-3 pt-2 border-t border-border/20 space-y-3">
+        {/* Description */}
+        <div>
+          <label className="text-[10px] font-medium text-muted-foreground/50 uppercase tracking-wider">Description</label>
+          <Textarea
+            value={editDesc}
+            onChange={e => setEditDesc(e.target.value)}
+            onBlur={() => saveField('description', editDesc)}
+            placeholder="Add a description..."
+            className="bg-accent/50 border-border/30 text-foreground text-xs mt-1 min-h-[48px] resize-none"
+            rows={2}
+          />
+        </div>
+
+        {/* Reflection */}
+        {(isMissed || isPartial || isSkipped || task.reflectionNote) && (
+          <div>
+            <label className="text-[10px] font-medium text-muted-foreground/50 uppercase tracking-wider">
+              {isMissed || isSkipped ? 'What went wrong?' : 'Reflection'}
+            </label>
+            {task.reflectionNote && !showReflectionInput ? (
+              <div
+                className="mt-1 text-xs text-amber-400/80 italic cursor-pointer hover:text-amber-400 transition-colors px-2 py-1.5 bg-amber-500/5 rounded-lg border border-amber-500/10"
+                onClick={() => { setEditReflection(task.reflectionNote || ''); setShowReflectionInput(true); }}
+              >
+                &ldquo;{task.reflectionNote}&rdquo;
+                <span className="text-[9px] text-muted-foreground/40 ml-1 not-italic">(click to edit)</span>
+              </div>
+            ) : (
+              <div className="mt-1 flex gap-2">
+                <Input
+                  value={editReflection}
+                  onChange={e => setEditReflection(e.target.value)}
+                  placeholder="What went wrong? (e.g., Unexpected assignment, Distraction...)"
+                  className="bg-accent/50 border-border/30 text-foreground text-xs flex-1"
+                  onKeyDown={e => { if (e.key === 'Enter') saveReflection(); }}
+                />
+                <Button onClick={saveReflection} size="sm" className="gradient-blue text-xs h-8 shrink-0">Save</Button>
+              </div>
+            )}
+            {!task.reflectionNote && !showReflectionInput && (isMissed || isPartial || isSkipped) && (
+              <button
+                onClick={() => setShowReflectionInput(true)}
+                className="mt-1 text-[10px] text-amber-400/60 hover:text-amber-400 flex items-center gap-1 transition-colors"
+              >
+                <MessageSquare size={10} /> Add reflection
+              </button>
+            )}
+          </div>
+        )}
+
+        {/* Meta row */}
+        <div className="flex items-center gap-3 flex-wrap">
+          {task.xpAwarded > 0 && (
+            <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-400 border border-amber-500/25 flex items-center gap-1">
+              <Zap size={8} /> +{task.xpAwarded} XP
+            </span>
+          )}
+          {task.completedAt && (
+            <span className="text-[10px] text-muted-foreground/40">
+              Completed {new Date(task.completedAt).toLocaleString()}
+            </span>
+          )}
+          {task.createdAt && (
+            <span className="text-[10px] text-muted-foreground/30">
+              Created {new Date(task.createdAt).toLocaleDateString()}
+            </span>
+          )}
+        </div>
+
+        {/* Action buttons */}
+        <div className="flex items-center gap-2 pt-1">
+          {task.status !== 'completed' && (
+            <>
+              <button
+                onClick={() => onUpdateTaskStatus(task.id, 'completed', currentTab)}
+                className="text-[10px] px-2.5 py-1 rounded-full bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-400 border border-emerald-500/20 transition-colors flex items-center gap-1"
+              >
+                <Check size={10} /> Done
+              </button>
+              <button
+                onClick={async () => {
+                  await onUpdateTaskStatus(task.id, 'partially_completed', currentTab);
+                  if (!task.reflectionNote) onSetReflectionModal({ taskId: task.id, title: task.title, status: 'partially_completed' });
+                }}
+                className="text-[10px] px-2.5 py-1 rounded-full bg-orange-500/15 hover:bg-orange-500/25 text-orange-400 border border-orange-500/20 transition-colors flex items-center gap-1"
+              >
+                <CircleDashed size={10} /> Partial
+              </button>
+              <button
+                onClick={async () => {
+                  await onUpdateTaskStatus(task.id, 'missed', currentTab);
+                  if (!task.reflectionNote) onSetReflectionModal({ taskId: task.id, title: task.title, status: 'missed' });
+                }}
+                className="text-[10px] px-2.5 py-1 rounded-full bg-red-500/15 hover:bg-red-500/25 text-red-400 border border-red-500/20 transition-colors flex items-center gap-1"
+              >
+                <AlertTriangle size={10} /> Missed
+              </button>
+            </>
+          )}
+          <button
+            onClick={() => onDeleteTask(task.id, currentTab)}
+            className="text-[10px] px-2.5 py-1 rounded-full bg-red-500/10 hover:bg-red-500/20 text-red-400/60 hover:text-red-400 border border-red-500/15 transition-colors flex items-center gap-1 ml-auto"
+          >
+            <Trash2 size={10} /> Delete
+          </button>
+        </div>
+      </div>
+    </motion.div>
+  );
+}
+
+// ── InlineAddTask ──
+
+function InlineAddTask({
+  defaultDate,
+  today,
+  tomorrow,
+  onRefresh,
+}: {
+  defaultDate: 'today' | 'tomorrow';
+  today: string;
+  tomorrow: string;
+  onRefresh: (tab: 'today' | 'tomorrow') => void;
+}) {
+  const [title, setTitle] = useState('');
+  const [category, setCategory] = useState('');
+  const [priority, setPriority] = useState<Priority>('medium');
+  const [fromTime, setFromTime] = useState('');
+  const [toTime, setToTime] = useState('');
+  const [isProductive, setIsProductive] = useState(true);
+  const [autoFill, setAutoFill] = useState(false);
+  const [expanded, setExpanded] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  async function handleAdd() {
+    if (!title.trim()) return;
+    const dateValue = defaultDate === 'tomorrow' ? tomorrow : today;
+    try {
+      const r = await fetch('/api/time/tasks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: title,
+          category: category || 'other',
+          priority,
+          isProductive,
+          date: dateValue,
+          fromTime: fromTime || undefined,
+          toTime: toTime || undefined,
+        }),
+      });
+      if (r.ok) {
+        toast.success(defaultDate === 'tomorrow' ? 'Task planned for tomorrow' : 'Task added');
+        setTitle(''); setCategory(''); setPriority('medium'); setFromTime(''); setToTime(''); setIsProductive(true); setAutoFill(false); setExpanded(false);
+        onRefresh(defaultDate);
+        window.dispatchEvent(new CustomEvent('xp-updated'));
+        window.dispatchEvent(new CustomEvent('notification-updated'));
+      }
+    } catch {}
+  }
+
+  async function classify(title: string) {
+    if (!title.trim()) return;
+    try {
+      const r = await fetch('/api/ai/classify-task', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title }),
+      });
+      if (r.ok) {
+        const data = await r.json();
+        if (data.category) { setCategory(data.category); setAutoFill(true); }
+        if (data.isProductive !== undefined) { setIsProductive(data.isProductive); }
+        setTimeout(() => setAutoFill(false), 3000);
+      }
+    } catch {}
+  }
+
+  return (
+    <div className="grid grid-cols-[28px_1fr] gap-2 px-3 py-2 items-center border-b border-dashed border-border/20 hover:bg-accent/20 transition-colors group">
+      <div className="flex justify-center">
+        <button
+          onClick={() => { setExpanded(!expanded); inputRef.current?.focus(); }}
+          className="w-5 h-5 rounded border border-border/40 flex items-center justify-center text-muted-foreground/30 hover:text-muted-foreground/60 hover:border-muted-foreground/40 transition-colors"
+        >
+          <Plus size={12} />
+        </button>
+      </div>
+      <div className="flex items-center gap-2">
+        <div className="flex-1 relative">
+          <input
+            ref={inputRef}
+            value={title}
+            onChange={e => setTitle(e.target.value)}
+            onBlur={() => { if (title.trim()) classify(title); }}
+            onKeyDown={e => { if (e.key === 'Enter') handleAdd(); }}
+            placeholder={defaultDate === 'tomorrow' ? 'Add a task for tomorrow...' : 'Add a task...'}
+            className="w-full bg-transparent text-sm text-foreground placeholder:text-muted-foreground/30 outline-none"
+          />
+          <AnimatePresence>
+            {autoFill && (
+              <motion.div initial={{ scale: 0, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0, opacity: 0 }} className="absolute right-0 top-1/2 -translate-y-1/2">
+                <Sparkles size={14} className="text-purple-400" />
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+        {title.trim() && (
+          <Button onClick={handleAdd} size="sm" className="gradient-blue text-[10px] h-6 px-2 shrink-0">
+            <Plus size={10} />
+          </Button>
+        )}
+      </div>
+      <AnimatePresence>
+        {expanded && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.15 }}
+            className="col-span-2 overflow-hidden"
+          >
+            <div className="flex items-center gap-2 py-2 flex-wrap">
+              <select value={category} onChange={e => setCategory(e.target.value)} className={`bg-accent border border-border/40 text-foreground rounded-md px-2 py-1 text-[11px] ${autoFill ? 'border-purple-500/50' : ''}`}>
+                <option value="" className="bg-background">Category</option>
+                {CATEGORIES.map(c => <option key={c} value={c} className="bg-background">{t(`category.${c}`)}</option>)}
+              </select>
+              <div className="flex items-center gap-1">
+                {PRIORITIES.map(p => (
+                  <button
+                    key={p}
+                    onClick={() => setPriority(p)}
+                    className={`text-[10px] px-2 py-0.5 rounded-full border transition-colors ${
+                      priority === p
+                        ? PRIORITY_STYLES[p]
+                        : 'border-border/30 text-muted-foreground/40 hover:text-muted-foreground/60'
+                    }`}
+                  >
+                    <Flag size={8} className="inline mr-0.5" />{PRIORITY_LABELS[p]}
+                  </button>
+                ))}
+              </div>
+              <Input type="time" value={fromTime} onChange={e => setFromTime(e.target.value)} className="bg-accent border-border/40 text-foreground text-[11px] w-24 h-7" />
+              <span className="text-muted-foreground/30 text-[10px]">to</span>
+              <Input type="time" value={toTime} onChange={e => setToTime(e.target.value)} className="bg-accent border-border/40 text-foreground text-[11px] w-24 h-7" />
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
+// ── NotionTaskRow ──
+
+function NotionTaskRow({
+  task,
+  currentTab,
+  isExpanded,
+  onToggleExpand,
+  onToggleTask,
+  onUpdateTaskStatus,
+  onDeleteTask,
+  onSetReflectionModal,
+  onRefresh,
+  onPriorityChange,
+  readOnly,
+}: {
+  task: any;
+  currentTab: 'today' | 'tomorrow';
+  isExpanded: boolean;
+  onToggleExpand: (id: string) => void;
   onToggleTask: (taskId: string, currentStatus: string, currentTab: 'today' | 'tomorrow') => void;
   onUpdateTaskStatus: (taskId: string, newStatus: string, currentTab: 'today' | 'tomorrow') => void;
   onDeleteTask: (id: string, currentTab: 'today' | 'tomorrow') => void;
   onSetReflectionModal: (modal: { taskId: string; title: string; status: string } | null) => void;
   onRefresh: (currentTab: 'today' | 'tomorrow') => void;
-}
-
-function TaskCard({ task, currentTab, onToggleTask, onUpdateTaskStatus, onDeleteTask, onSetReflectionModal, onRefresh }: TaskCardProps) {
+  onPriorityChange: (taskId: string, priority: string) => void;
+  readOnly?: boolean;
+}) {
   const isDone = task.status === 'completed';
   const isMissed = task.status === 'missed';
-  const isPartial = task.status === 'partially_completed';
-  const isSkipped = task.status === 'skipped';
   const isInProgress = task.status === 'in_progress';
-  const [showReflection, setShowReflection] = useState(false);
-  const [localReflection, setLocalReflection] = useState(task.reflectionNote || '');
+  const isSkipped = task.status === 'skipped';
   const [elapsedMin, setElapsedMin] = useState<number | null>(null);
 
-  // Elapsed time for in-progress tasks with fromTime
   useEffect(() => {
     if (!isInProgress || !task.fromTime) return;
     const calcElapsed = () => {
@@ -116,208 +497,263 @@ function TaskCard({ task, currentTab, onToggleTask, onUpdateTaskStatus, onDelete
     return () => clearInterval(interval);
   }, [isInProgress, task.fromTime]);
 
-  async function saveLocalReflection() {
-    if (!localReflection.trim()) { setShowReflection(false); return; }
-    try {
-      await fetch('/api/time/tasks', {
-        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: task.id, reflectionNote: localReflection.trim() }),
-      });
-      toast.success('Reflection saved');
-      onRefresh(currentTab);
-    } catch {}
-    setShowReflection(false);
-  }
+  const cyclePriority = () => {
+    if (readOnly) return;
+    const cycle: Record<string, Priority> = { low: 'medium', medium: 'high', high: 'low' };
+    const next = cycle[task.priority || 'medium'] || 'medium';
+    onPriorityChange(task.id, next);
+  };
 
   return (
-    <GlassCard className={`p-3 ${isDone ? 'opacity-60' : ''} ${isMissed ? 'border-red-500/30' : ''} ${isPartial ? 'border-amber-500/30' : ''} ${isSkipped ? 'opacity-50' : ''}`}>
-      <div className="flex items-center gap-3">
-        <button
-          onClick={() => onToggleTask(task.id, task.status, currentTab)}
-          className={`w-5 h-5 rounded-full border shrink-0 flex items-center justify-center ${
-            isDone ? 'bg-green-500 border-green-500' :
-            isInProgress ? 'bg-blue-500/30 border-blue-500' :
-            isMissed ? 'bg-red-500/30 border-red-500' :
-            isPartial ? 'bg-amber-500/30 border-amber-500' :
-            isSkipped ? 'bg-zinc-500/20 border-zinc-500' :
-            'border-border'
-          }`}
-        >
-          <StatusIcon status={task.status} />
-        </button>
-        <div className="flex-1 min-w-0">
-          <p className={`text-sm ${isDone ? 'line-through text-muted-foreground/50' : isMissed || isSkipped ? 'text-muted-foreground/60' : 'text-foreground'}`}>{task.title}</p>
-          <div className="flex items-center gap-2 mt-1 flex-wrap">
-            {task.fromTime && task.toTime && <span className="text-[10px] text-blue-400">{formatTime(task.fromTime)} - {formatTime(task.toTime)}</span>}
-            {isInProgress && elapsedMin !== null && (
-              <span className="text-[10px] text-blue-400 flex items-center gap-0.5">
-                <Clock size={8} /> {elapsedMin}m elapsed
-              </span>
-            )}
-            <StatusBadge status={task.status} />
-            {task.isProductive ? (
-              <span className="text-[10px] px-2 py-0.5 rounded-full bg-green-600/20 text-green-400">Productive</span>
-            ) : (
-              <span className="text-[10px] px-2 py-0.5 rounded-full bg-red-600/20 text-red-400">Unproductive</span>
-            )}
-            {task.category && <span className="text-[10px] text-muted-foreground/50">{t(`category.${task.category}`)}</span>}
-            {task.reflectionNote && (
-              <span className="text-[10px] text-amber-400 flex items-center gap-0.5">
-                <MessageSquare size={8} /> Reflected
-              </span>
-            )}
-          </div>
-        </div>
-        <div className="flex items-center gap-0.5 shrink-0">
-          {task.status !== 'completed' && (
-            <>
-              <button
-                onClick={() => onUpdateTaskStatus(task.id, 'completed', currentTab)}
-                className="w-6 h-6 rounded-full bg-green-600/15 hover:bg-green-600/30 flex items-center justify-center transition-colors"
-                title="Done"
-              >
-                <Check size={11} className="text-green-400" />
-              </button>
-              <button
-                onClick={async () => {
-                  await onUpdateTaskStatus(task.id, 'partially_completed', currentTab);
-                  if (!task.reflectionNote) onSetReflectionModal({ taskId: task.id, title: task.title, status: 'partially_completed' });
-                }}
-                className="w-6 h-6 rounded-full bg-amber-600/15 hover:bg-amber-600/30 flex items-center justify-center transition-colors"
-                title="Partial"
-              >
-                <CircleDashed size={11} className="text-amber-400" />
-              </button>
-              <button
-                onClick={async () => {
-                  await onUpdateTaskStatus(task.id, 'missed', currentTab);
-                  if (!task.reflectionNote) onSetReflectionModal({ taskId: task.id, title: task.title, status: 'missed' });
-                }}
-                className="w-6 h-6 rounded-full bg-red-600/15 hover:bg-red-600/30 flex items-center justify-center transition-colors"
-                title="Missed"
-              >
-                <AlertTriangle size={11} className="text-red-400" />
-              </button>
-            </>
-          )}
-          {(isMissed || isPartial) && (
-            <button
-              onClick={() => setShowReflection(!showReflection)}
-              className="text-amber-400/60 hover:text-amber-400 p-1"
-              title="Add reflection"
-            >
-              <MessageSquare size={12} />
-            </button>
-          )}
-          <button onClick={() => onDeleteTask(task.id, currentTab)} className="text-muted-foreground/50 hover:text-red-400 p-1">
-            <Trash2 size={14} />
+    <div className={`border-b border-border/10 transition-colors ${isDone ? 'opacity-50' : isSkipped ? 'opacity-40' : isMissed ? '' : ''} ${isMissed ? 'bg-red-500/[0.02]' : ''} hover:bg-accent/20`}>
+      <div
+        className="grid grid-cols-[28px_1fr_80px_56px_64px_90px_36px] sm:grid-cols-[28px_1fr_90px_60px_70px_100px_36px] gap-2 px-3 py-2.5 items-center cursor-pointer"
+        onClick={() => onToggleExpand(task.id)}
+      >
+        {/* Checkbox */}
+        <div className="flex justify-center" onClick={e => e.stopPropagation()}>
+          <button
+            onClick={() => { if (!readOnly) onToggleTask(task.id, task.status, currentTab); }}
+            disabled={readOnly}
+            className={`w-[18px] h-[18px] rounded border flex items-center justify-center transition-colors shrink-0 ${
+              isDone ? 'bg-emerald-500 border-emerald-500' :
+              isInProgress ? 'bg-amber-500/25 border-amber-500' :
+              isMissed ? 'bg-red-500/20 border-red-500' :
+              'border-border/50 hover:border-muted-foreground/40'
+            }`}
+          >
+            {isDone && <Check size={11} className="text-white" />}
+            {isInProgress && <Play size={8} className="text-amber-400" />}
+            {isMissed && <AlertTriangle size={9} className="text-red-400" />}
+            {isSkipped && <SkipForward size={9} className="text-zinc-400" />}
           </button>
         </div>
-      </div>
-      {showReflection && (
-        <div className="mt-2 flex gap-2">
-          <Input
-            value={localReflection}
-            onChange={e => setLocalReflection(e.target.value)}
-            placeholder="What went wrong? (e.g., Unexpected assignment, Distraction...)"
-            className="bg-accent border-border text-foreground text-xs flex-1"
-          />
-          <Button onClick={saveLocalReflection} size="sm" className="gradient-blue text-xs h-8">Save</Button>
+
+        {/* Title */}
+        <div className="min-w-0">
+          <p className={`text-sm truncate ${isDone ? 'line-through text-muted-foreground/40' : isMissed || isSkipped ? 'text-muted-foreground/50' : 'text-foreground'}`}>
+            {task.title}
+          </p>
+          {isInProgress && elapsedMin !== null && (
+            <span className="text-[9px] text-amber-400/70 flex items-center gap-0.5 mt-0.5">
+              <Clock size={7} /> {elapsedMin}m elapsed
+            </span>
+          )}
+          {task.reflectionNote && !isExpanded && (
+            <span className="text-[9px] text-amber-400/50 flex items-center gap-0.5 mt-0.5">
+              <MessageSquare size={7} /> Reflected
+            </span>
+          )}
         </div>
-      )}
-      {task.reflectionNote && !showReflection && (
-        <p className="text-[10px] text-amber-400/70 mt-1 pl-8 italic">&ldquo;{task.reflectionNote}&rdquo;</p>
-      )}
-    </GlassCard>
+
+        {/* Status */}
+        <div onClick={e => e.stopPropagation()}>
+          <StatusChip
+            status={task.status}
+            onClick={readOnly ? undefined : () => onToggleTask(task.id, task.status, currentTab)}
+            readOnly={readOnly}
+          />
+        </div>
+
+        {/* Priority */}
+        <div onClick={e => e.stopPropagation()}>
+          <PriorityChip
+            priority={task.priority || 'medium'}
+            onClick={readOnly ? undefined : cyclePriority}
+            readOnly={readOnly}
+          />
+        </div>
+
+        {/* Category */}
+        <span className="text-[10px] text-muted-foreground/40 truncate">
+          {task.category ? t(`category.${task.category}`) : ''}
+        </span>
+
+        {/* Time */}
+        <span className="text-[10px] text-muted-foreground/40 truncate">
+          {task.fromTime && task.toTime ? `${formatTime(task.fromTime)}–${formatTime(task.toTime)}` : task.fromTime ? formatTime(task.fromTime) : ''}
+        </span>
+
+        {/* XP */}
+        <span className="text-[10px] text-amber-400/60 font-medium flex items-center gap-0.5">
+          {task.xpAwarded ? <><Zap size={8} />{task.xpAwarded}</> : ''}
+        </span>
+      </div>
+
+      {/* Expanded details */}
+      <AnimatePresence>
+        {isExpanded && (
+          <ExpandedTaskDetails
+            task={task}
+            currentTab={currentTab}
+            onUpdateTaskStatus={onUpdateTaskStatus}
+            onSetReflectionModal={onSetReflectionModal}
+            onDeleteTask={onDeleteTask}
+            onRefresh={onRefresh}
+          />
+        )}
+      </AnimatePresence>
+    </div>
   );
 }
 
-interface AddTaskFormProps {
-  defaultDate: 'today' | 'tomorrow';
-  today: string;
-  tomorrow: string;
+// ── FilterBar ──
+
+type SortMode = 'newest' | 'oldest' | 'priority' | 'time';
+
+function FilterBar({
+  filterPriority,
+  setFilterPriority,
+  filterCategory,
+  setFilterCategory,
+  filterStatus,
+  setFilterStatus,
+  sortMode,
+  setSortMode,
+}: {
+  filterPriority: string;
+  setFilterPriority: (p: string) => void;
   filterCategory: string;
-  onSetFilterCategory: (cat: string) => void;
-  onRefresh: (tab: 'today' | 'tomorrow') => void;
-  onAdd?: () => void;
-}
+  setFilterCategory: (c: string) => void;
+  filterStatus: string;
+  setFilterStatus: (s: string) => void;
+  sortMode: SortMode;
+  setSortMode: (s: SortMode) => void;
+}) {
+  const [showFilters, setShowFilters] = useState(false);
 
-function AddTaskForm({ defaultDate, today, tomorrow, filterCategory, onSetFilterCategory, onRefresh, onAdd }: AddTaskFormProps) {
-  const [localTitle, setLocalTitle] = useState('');
-  const [localCategory, setLocalCategory] = useState('');
-  const [localFromTime, setLocalFromTime] = useState('');
-  const [localToTime, setLocalToTime] = useState('');
-  const [localIsProductive, setLocalIsProductive] = useState(true);
-  const [localAutoFill, setLocalAutoFill] = useState(false);
+  const statusOptions = [
+    { value: 'all', label: 'All' },
+    { value: 'pending', label: 'Planned' },
+    { value: 'in_progress', label: 'In Progress' },
+    { value: 'completed', label: 'Done' },
+    { value: 'missed', label: 'Missed' },
+    { value: 'skipped', label: 'Skipped' },
+  ];
 
-  async function handleAdd() {
-    if (!localTitle.trim()) return;
-    const dateValue = defaultDate === 'tomorrow' ? tomorrow : today;
-    try {
-      const r = await fetch('/api/time/tasks', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title: localTitle, category: localCategory || 'other', isProductive: localIsProductive, date: dateValue, fromTime: localFromTime || undefined, toTime: localToTime || undefined }),
-      });
-      if (r.ok) {
-        toast.success(defaultDate === 'tomorrow' ? 'Task planned for tomorrow' : 'Task added');
-        setLocalTitle(''); setLocalCategory(''); setLocalFromTime(''); setLocalToTime(''); setLocalIsProductive(true); setLocalAutoFill(false);
-        onRefresh(defaultDate);
-        window.dispatchEvent(new CustomEvent('xp-updated')); window.dispatchEvent(new CustomEvent('notification-updated'));
-        onAdd?.();
-      }
-    } catch {}
-  }
+  const priorityOptions = [
+    { value: 'all', label: 'All' },
+    { value: 'low', label: 'Low' },
+    { value: 'medium', label: 'Med' },
+    { value: 'high', label: 'High' },
+  ];
 
-  async function localClassify(title: string) {
-    if (!title.trim()) return;
-    try {
-      const r = await fetch('/api/ai/classify-task', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title }),
-      });
-      if (r.ok) {
-        const data = await r.json();
-        if (data.category) { setLocalCategory(data.category); setLocalAutoFill(true); }
-        if (data.isProductive !== undefined) { setLocalIsProductive(data.isProductive); }
-        setTimeout(() => setLocalAutoFill(false), 3000);
-      }
-    } catch {}
-  }
+  const categoryOptions = [
+    { value: 'all', label: 'All' },
+    ...CATEGORIES.map(c => ({ value: c, label: t(`category.${c}`) })),
+  ];
+
+  const sortOptions: { value: SortMode; label: string }[] = [
+    { value: 'time', label: 'Time' },
+    { value: 'priority', label: 'Priority' },
+    { value: 'newest', label: 'Newest' },
+    { value: 'oldest', label: 'Oldest' },
+  ];
 
   return (
-    <GlassCard className="p-4">
-      <h3 className="text-sm font-medium text-muted-foreground mb-3">
-        {defaultDate === 'tomorrow' ? '🌙 Plan Tomorrow' : t('time.addTask')}
-      </h3>
-      <div className="flex gap-2 mb-3">
-        <div className="flex-1 relative">
-          <Input value={localTitle} onChange={e => setLocalTitle(e.target.value)} onBlur={() => { if (localTitle.trim()) localClassify(localTitle); }} placeholder={defaultDate === 'tomorrow' ? 'What will you do tomorrow?' : t('time.addTask')} className="bg-accent border-border text-foreground placeholder:text-muted-foreground/50 pr-8" />
-          <AnimatePresence>
-            {localAutoFill && <motion.div initial={{ scale: 0, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0, opacity: 0 }} className="absolute right-2 top-1/2 -translate-y-1/2"><Sparkles size={16} className="text-purple-400" /></motion.div>}
-          </AnimatePresence>
-        </div>
-        <select value={localCategory} onChange={e => setLocalCategory(e.target.value)} className={`bg-accent border border-border text-foreground rounded-md px-2 text-sm ${localAutoFill ? 'border-purple-500/50' : ''}`}>
-          <option value="" className="bg-background">Category</option>
-          {CATEGORIES.map(c => <option key={c} value={c} className="bg-background">{t(`category.${c}`)}</option>)}
-        </select>
-        <Button onClick={handleAdd} className="gradient-blue shrink-0"><Plus size={16} /></Button>
+    <div className="space-y-2">
+      <div className="flex items-center gap-2 flex-wrap">
+        <button
+          onClick={() => setShowFilters(!showFilters)}
+          className="text-[10px] px-2.5 py-1 rounded-full border border-border/30 text-muted-foreground/60 hover:text-muted-foreground hover:border-border/50 transition-colors flex items-center gap-1"
+        >
+          <ArrowUpDown size={9} /> Filter & Sort
+        </button>
+        {(filterPriority !== 'all' || filterCategory !== 'all' || filterStatus !== 'all') && (
+          <button
+            onClick={() => { setFilterPriority('all'); setFilterCategory('all'); setFilterStatus('all'); }}
+            className="text-[10px] px-2 py-1 rounded-full border border-red-500/20 text-red-400/60 hover:text-red-400 transition-colors"
+          >
+            Clear filters
+          </button>
+        )}
       </div>
-      <div className="flex gap-2 mb-3">
-        <Input type="time" value={localFromTime} onChange={e => setLocalFromTime(e.target.value)} className="bg-accent border-border text-foreground text-xs w-28" />
-        <span className="text-muted-foreground/50 self-center">to</span>
-        <Input type="time" value={localToTime} onChange={e => setLocalToTime(e.target.value)} className="bg-accent border-border text-foreground text-xs w-28" />
-      </div>
-      <div className="flex gap-2 flex-wrap">
-        <SelectPill label="All" selected={filterCategory === 'all'} onClick={() => onSetFilterCategory('all')} color="blue" />
-        {CATEGORIES.map(c => <SelectPill key={c} label={t(`category.${c}`)} selected={filterCategory === c} onClick={() => onSetFilterCategory(c)} color="blue" />)}
-      </div>
-    </GlassCard>
+      <AnimatePresence>
+        {showFilters && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.15 }}
+            className="overflow-hidden"
+          >
+            <div className="space-y-2 p-3 bg-accent/20 rounded-lg border border-border/10">
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <span className="text-[9px] text-muted-foreground/40 uppercase tracking-wider mr-1">Priority</span>
+                {priorityOptions.map(o => (
+                  <button
+                    key={o.value}
+                    onClick={() => setFilterPriority(o.value)}
+                    className={`text-[10px] px-2 py-0.5 rounded-full border transition-colors ${
+                      filterPriority === o.value
+                        ? 'bg-sky-500/15 text-sky-400 border-sky-500/25'
+                        : 'border-border/20 text-muted-foreground/40 hover:text-muted-foreground/60'
+                    }`}
+                  >
+                    {o.label}
+                  </button>
+                ))}
+              </div>
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <span className="text-[9px] text-muted-foreground/40 uppercase tracking-wider mr-1">Category</span>
+                {categoryOptions.map(o => (
+                  <button
+                    key={o.value}
+                    onClick={() => setFilterCategory(o.value)}
+                    className={`text-[10px] px-2 py-0.5 rounded-full border transition-colors ${
+                      filterCategory === o.value
+                        ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/25'
+                        : 'border-border/20 text-muted-foreground/40 hover:text-muted-foreground/60'
+                    }`}
+                  >
+                    {o.label}
+                  </button>
+                ))}
+              </div>
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <span className="text-[9px] text-muted-foreground/40 uppercase tracking-wider mr-1">Status</span>
+                {statusOptions.map(o => (
+                  <button
+                    key={o.value}
+                    onClick={() => setFilterStatus(o.value)}
+                    className={`text-[10px] px-2 py-0.5 rounded-full border transition-colors ${
+                      filterStatus === o.value
+                        ? 'bg-amber-500/15 text-amber-400 border-amber-500/25'
+                        : 'border-border/20 text-muted-foreground/40 hover:text-muted-foreground/60'
+                    }`}
+                  >
+                    {o.label}
+                  </button>
+                ))}
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span className="text-[9px] text-muted-foreground/40 uppercase tracking-wider mr-1">Sort</span>
+                {sortOptions.map(o => (
+                  <button
+                    key={o.value}
+                    onClick={() => setSortMode(o.value)}
+                    className={`text-[10px] px-2 py-0.5 rounded-full border transition-colors ${
+                      sortMode === o.value
+                        ? 'bg-purple-500/15 text-purple-400 border-purple-500/25'
+                        : 'border-border/20 text-muted-foreground/40 hover:text-muted-foreground/60'
+                    }`}
+                  >
+                    {o.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
   );
 }
+
+// ── ReviewTab (kept from original, styled consistently) ──
 
 function ReviewTab({ reviewData }: { reviewData: any }) {
   if (!reviewData) return <div className="flex justify-center py-8"><Loader2 className="animate-spin text-blue-400" size={24} /></div>;
-
   const { overview, reflections, commonFailures, categoryStats, timeSlots, dailyRates } = reviewData;
 
   return (
@@ -381,7 +817,7 @@ function ReviewTab({ reviewData }: { reviewData: any }) {
               <div key={i} className="py-2 px-3 bg-accent/30 rounded-lg border border-amber-500/10">
                 <div className="flex items-center gap-2 mb-1">
                   <span className="text-xs font-medium text-foreground">{r.title}</span>
-                  <StatusBadge status={r.status} />
+                  <StatusChip status={r.status} readOnly />
                   <span className="text-[10px] text-muted-foreground/50 ml-auto">{r.date}</span>
                 </div>
                 <p className="text-[11px] text-amber-400/80 italic">&ldquo;{r.note}&rdquo;</p>
@@ -437,7 +873,18 @@ export default function TimeClient() {
   const [tomorrowTasks, setTomorrowTasks] = useState<any[]>([]);
   const [focusSessions, setFocusSessions] = useState<any[]>([]);
 
+  // Filters & Sort
+  const [filterPriority, setFilterPriority] = useState('all');
   const [filterCategory, setFilterCategory] = useState('all');
+  const [filterStatus, setFilterStatus] = useState('all');
+  const [sortMode, setSortMode] = useState<SortMode>('time');
+
+  // Expanded rows
+  const [expandedTask, setExpandedTask] = useState<string | null>(null);
+
+  // Sections visibility
+  const [tomorrowCollapsed, setTomorrowCollapsed] = useState(false);
+  const [historyCollapsed, setHistoryCollapsed] = useState(true);
 
   // Reflection modal
   const [reflectionModal, setReflectionModal] = useState<{ taskId: string; title: string; status: string } | null>(null);
@@ -467,16 +914,17 @@ export default function TimeClient() {
   const [expandedDays, setExpandedDays] = useState<Record<string, boolean>>({});
   const [upcomingExpanded, setUpcomingExpanded] = useState(true);
 
-  // Force re-render at midnight so today/tomorrow dates update
+  // Force re-render at midnight
   useEffect(() => {
     const now = new Date();
     const msUntilMidnight = ((24 - now.getHours()) * 60 - now.getMinutes()) * 60000 - now.getSeconds() * 1000;
     const timeout = setTimeout(() => {
-      // Trigger re-render by flipping a dummy state; today/tomorrow are computed each render
       setUpcomingExpanded(prev => prev);
     }, msUntilMidnight + 1000);
     return () => clearTimeout(timeout);
   }, [today]);
+
+  // ── Fetch functions ──
 
   const fetchTasks = useCallback(async () => {
     try {
@@ -493,7 +941,10 @@ export default function TimeClient() {
   }, [tomorrow]);
 
   const fetchFocusSessions = useCallback(async () => {
-    try { const r = await fetch(`/api/time/focus?date=${today}`); if (r.ok) { const d = await r.json(); setFocusSessions(Array.isArray(d) ? d : d.sessions || []); } } catch {}
+    try {
+      const r = await fetch(`/api/time/focus?date=${today}`);
+      if (r.ok) { const d = await r.json(); setFocusSessions(Array.isArray(d) ? d : d.sessions || []); }
+    } catch {}
   }, [today]);
 
   const fetchReviewData = useCallback(async () => {
@@ -512,9 +963,7 @@ export default function TimeClient() {
 
   useEffect(() => {
     fetchTasks(); fetchTomorrowTasks(); fetchFocusSessions(); fetchReviewData(); fetchPlanningInsights();
-    const last7 = Array.from({ length: 7 }, (_, i) => {
-      return getLocalDateStr(-(i + 1));
-    });
+    const last7 = Array.from({ length: 7 }, (_, i) => getLocalDateStr(-(i + 1)));
     Promise.all(last7.map(async dateStr => {
       try {
         const r = await fetch(`/api/time/tasks?date=${dateStr}`);
@@ -528,7 +977,8 @@ export default function TimeClient() {
     });
   }, [fetchTasks, fetchTomorrowTasks, fetchFocusSessions, fetchReviewData, fetchPlanningInsights]);
 
-  // Timer logic
+  // ── Timer logic ──
+
   useEffect(() => {
     if (timerRunning && timerSeconds > 0) {
       timerInterval.current = setInterval(() => setTimerSeconds(s => s - 1), 1000);
@@ -554,6 +1004,8 @@ export default function TimeClient() {
       }
     } catch {}
   }
+
+  // ── Task operations ──
 
   async function updateTaskStatus(taskId: string, newStatus: string, currentTab: 'today' | 'tomorrow') {
     try {
@@ -582,7 +1034,6 @@ export default function TimeClient() {
   }
 
   async function toggleTask(taskId: string, currentStatus: string, currentTab: 'today' | 'tomorrow') {
-    // Cycle through: Pending → In Progress → Done → Skipped
     const statusCycle: Record<string, string> = {
       'pending': 'in_progress',
       'in_progress': 'completed',
@@ -593,6 +1044,16 @@ export default function TimeClient() {
     };
     const nextStatus = statusCycle[currentStatus] || 'pending';
     await updateTaskStatus(taskId, nextStatus, currentTab);
+  }
+
+  async function changePriority(taskId: string, priority: string) {
+    try {
+      await fetch('/api/time/tasks', {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: taskId, priority }),
+      });
+      fetchTasks(); fetchTomorrowTasks();
+    } catch {}
   }
 
   async function saveReflection() {
@@ -624,6 +1085,8 @@ export default function TimeClient() {
   function refreshTab(tab: 'today' | 'tomorrow') {
     if (tab === 'tomorrow') fetchTomorrowTasks(); else fetchTasks();
   }
+
+  // ── Chat functions ──
 
   async function sendChat() {
     if (!chatInput.trim()) return;
@@ -663,12 +1126,11 @@ export default function TimeClient() {
     } catch {}
   }
 
-  // Auto-mark yesterday's pending tasks as missed + migrate tomorrow's tasks to today at midnight
+  // Auto-mark yesterday's pending tasks as missed
   useEffect(() => {
     const markMissedAndMigrate = async () => {
       const yesterday = getLocalDateStr(-1);
       try {
-        // Mark yesterday's pending/in_progress tasks as missed
         const r = await fetch(`/api/time/tasks?date=${yesterday}`);
         if (r.ok) {
           const d = await r.json();
@@ -689,23 +1151,55 @@ export default function TimeClient() {
     markMissedAndMigrate();
   }, []);
 
-  const filteredTodayTasks = filterCategory === 'all' ? tasks : tasks.filter((t: any) => t.category === filterCategory);
-  const filteredTomorrowTasks = filterCategory === 'all' ? tomorrowTasks : tomorrowTasks.filter((t: any) => t.category === filterCategory);
+  // ── Filtering & Sorting ──
+
+  function applyFiltersAndSort(taskList: any[]): any[] {
+    let filtered = taskList;
+    if (filterCategory !== 'all') filtered = filtered.filter((t: any) => t.category === filterCategory);
+    if (filterPriority !== 'all') filtered = filtered.filter((t: any) => (t.priority || 'medium') === filterPriority);
+    if (filterStatus !== 'all') filtered = filtered.filter((t: any) => t.status === filterStatus);
+
+    const priorityOrder: Record<string, number> = { high: 0, medium: 1, low: 2 };
+    if (sortMode === 'priority') {
+      filtered = [...filtered].sort((a, b) => (priorityOrder[a.priority || 'medium'] ?? 1) - (priorityOrder[b.priority || 'medium'] ?? 1));
+    } else if (sortMode === 'newest') {
+      filtered = [...filtered].sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
+    } else if (sortMode === 'oldest') {
+      filtered = [...filtered].sort((a, b) => new Date(a.createdAt || 0).getTime() - new Date(b.createdAt || 0).getTime());
+    } else {
+      filtered = sortByTime(filtered);
+    }
+    return filtered;
+  }
+
+  const filteredTodayTasks = applyFiltersAndSort(tasks);
+  const filteredTomorrowTasks = applyFiltersAndSort(tomorrowTasks);
+
+  // ── Render ──
 
   return (
     <div className="max-w-4xl mx-auto space-y-4">
+      {/* Plan Tomorrow banner */}
       {isAfter7PM() && activeTab === 'planner' && (
-        <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="bg-gradient-to-r from-indigo-600/20 to-purple-600/20 border border-indigo-500/30 rounded-xl p-3 flex items-center justify-between">
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="bg-gradient-to-r from-violet-600/15 to-purple-600/15 border border-violet-500/20 rounded-xl p-3 flex items-center justify-between"
+        >
           <div className="flex items-center gap-2">
-            <Moon size={18} className="text-indigo-400" />
+            <Moon size={18} className="text-violet-400" />
             <span className="text-sm text-foreground font-medium">Plan Tomorrow</span>
             <span className="text-xs text-muted-foreground">— Set up tomorrow&apos;s tasks now</span>
           </div>
-          <Button onClick={() => setUpcomingExpanded(true)} size="sm" className="gradient-blue text-xs h-7">Plan Tomorrow</Button>
+          <Button
+            onClick={() => { setTomorrowCollapsed(false); document.getElementById('tomorrow-section')?.scrollIntoView({ behavior: 'smooth' }); }}
+            size="sm"
+            className="gradient-blue text-xs h-7"
+          >
+            Plan Tomorrow
+          </Button>
         </motion.div>
       )}
-
-
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList className="bg-accent border border-border w-full flex overflow-x-auto">
@@ -720,8 +1214,10 @@ export default function TimeClient() {
           ))}
         </TabsList>
 
-        {/* Planner Tab */}
+        {/* ═══════════ Planner Tab ═══════════ */}
         <TabsContent value="planner" className="space-y-4 mt-4">
+
+          {/* Insights */}
           {planningInsights.length > 0 && (
             <GlassCard className="p-3 border-purple-500/20">
               <div className="flex items-center gap-2 mb-2">
@@ -736,144 +1232,248 @@ export default function TimeClient() {
             </GlassCard>
           )}
 
-          <AddTaskForm defaultDate="today" today={today} tomorrow={tomorrow} filterCategory={filterCategory} onSetFilterCategory={setFilterCategory} onRefresh={refreshTab} />
+          {/* Filter Bar */}
+          <FilterBar
+            filterPriority={filterPriority}
+            setFilterPriority={setFilterPriority}
+            filterCategory={filterCategory}
+            setFilterCategory={setFilterCategory}
+            filterStatus={filterStatus}
+            setFilterStatus={setFilterStatus}
+            sortMode={sortMode}
+            setSortMode={setSortMode}
+          />
 
-          {/* ── Today's Scheduled Tasks ── */}
-          <div className="space-y-2">
-            <div className="flex items-center gap-2 px-1">
-              <span className="text-xs font-semibold text-foreground">Today</span>
-              {tasks.length > 0 && <span className="text-[10px] text-muted-foreground/50">{tasks.length} task{tasks.length !== 1 ? 's' : ''}</span>}
+          {/* ── Today's Tasks ── */}
+          <GlassCard className="overflow-hidden">
+            {/* Section Header */}
+            <div className="flex items-center justify-between px-4 py-3 border-b border-border/20">
+              <div className="flex items-center gap-2">
+                <Calendar size={14} className="text-foreground/70" />
+                <span className="text-sm font-semibold text-foreground">Today</span>
+                <span className="text-[10px] text-muted-foreground/50 bg-accent px-2 py-0.5 rounded-full">
+                  {new Date().toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' })}
+                </span>
+                <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-foreground/5 text-muted-foreground/50">
+                  {tasks.length} task{tasks.length !== 1 ? 's' : ''}
+                </span>
+              </div>
             </div>
-            {filteredTodayTasks.map((task: any) => (
-              <TaskCard key={task.id} task={task} currentTab="today" onToggleTask={toggleTask} onUpdateTaskStatus={updateTaskStatus} onDeleteTask={deleteTask} onSetReflectionModal={setReflectionModal} onRefresh={refreshTab} />
-            ))}
-            {tasks.length === 0 && (
-              <p className="text-center text-muted-foreground/50 py-8 text-sm">No tasks for today. Add one above!</p>
+
+            {/* Table Header */}
+            <TaskTableHeader />
+
+            {/* Inline Add */}
+            <InlineAddTask defaultDate="today" today={today} tomorrow={tomorrow} onRefresh={refreshTab} />
+
+            {/* Task Rows */}
+            {filteredTodayTasks.length > 0 ? (
+              filteredTodayTasks.map((task: any) => (
+                <NotionTaskRow
+                  key={task.id}
+                  task={task}
+                  currentTab="today"
+                  isExpanded={expandedTask === task.id}
+                  onToggleExpand={(id) => setExpandedTask(prev => prev === id ? null : id)}
+                  onToggleTask={toggleTask}
+                  onUpdateTaskStatus={updateTaskStatus}
+                  onDeleteTask={deleteTask}
+                  onSetReflectionModal={setReflectionModal}
+                  onRefresh={refreshTab}
+                  onPriorityChange={changePriority}
+                />
+              ))
+            ) : (
+              <div className="px-4 py-8 text-center text-muted-foreground/40 text-sm">
+                {tasks.length === 0 ? 'No tasks for today. Add one above!' : 'No tasks match your filters.'}
+              </div>
             )}
-          </div>
+          </GlassCard>
 
-          {/* ── Plan Tomorrow Button ── */}
-          <Button
-            onClick={() => {
-              // Scroll to tomorrow section
-              document.getElementById('tomorrow-section')?.scrollIntoView({ behavior: 'smooth' });
-            }}
-            variant="ghost"
-            className="w-full text-indigo-400 hover:text-indigo-300 hover:bg-indigo-600/10 text-xs border border-indigo-500/20"
-          >
-            <Moon size={14} className="mr-1" /> Plan Tomorrow
-          </Button>
-
-          {/* ── Tomorrow's Tasks (always visible) ── */}
-          <div id="tomorrow-section" className="space-y-2">
-            <div className="flex items-center gap-2 px-1">
-              <span className="text-xs font-semibold text-indigo-400">Tomorrow</span>
-              <span className="text-[10px] text-muted-foreground/50">{tomorrowTasks.length} task{tomorrowTasks.length !== 1 ? 's' : ''}</span>
+          {/* ── Tomorrow's Tasks (collapsible) ── */}
+          <GlassCard className="overflow-hidden">
+            <div
+              className="flex items-center justify-between px-4 py-3 cursor-pointer hover:bg-accent/10 transition-colors"
+              onClick={() => setTomorrowCollapsed(!tomorrowCollapsed)}
+            >
+              <div className="flex items-center gap-2">
+                {tomorrowCollapsed ? <ChevronRight size={14} className="text-muted-foreground/40" /> : <ChevronDown size={14} className="text-muted-foreground/40" />}
+                <Moon size={14} className="text-violet-400/70" />
+                <span className="text-sm font-semibold text-foreground">Tomorrow</span>
+                <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-foreground/5 text-muted-foreground/50">
+                  {tomorrowTasks.length} task{tomorrowTasks.length !== 1 ? 's' : ''}
+                </span>
+                {isAfter7PM() && (
+                  <span className="text-[10px] text-violet-400/60">— Plan now</span>
+                )}
+              </div>
             </div>
-            <AddTaskForm defaultDate="tomorrow" today={today} tomorrow={tomorrow} filterCategory={filterCategory} onSetFilterCategory={setFilterCategory} onRefresh={refreshTab} />
-            {filteredTomorrowTasks.map((task: any) => (
-              <TaskCard key={task.id} task={task} currentTab="tomorrow" onToggleTask={toggleTask} onUpdateTaskStatus={updateTaskStatus} onDeleteTask={deleteTask} onSetReflectionModal={setReflectionModal} onRefresh={refreshTab} />
-            ))}
-            {tomorrowTasks.length === 0 && (
-              <p className="text-center text-muted-foreground/50 py-4 text-sm">No tasks planned for tomorrow yet.</p>
-            )}
-          </div>
 
-          <div className="flex gap-2">
-            <Button onClick={rankUnproductive} variant="ghost" className="text-purple-400 hover:text-purple-300 text-xs"><Sparkles size={14} className="mr-1" />{t('time.aiRankUnproductive')}</Button>
-            <Button onClick={async () => { await fetch('/api/time/tasks', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ resetAll: true }) }); fetchTasks(); window.dispatchEvent(new CustomEvent('xp-updated')); window.dispatchEvent(new CustomEvent('notification-updated')); }} variant="ghost" className="text-red-400 hover:text-red-300 text-xs">{t('common.reset')} All</Button>
-          </div>
-
-          {/* Past 7 Days History */}
-          <div className="space-y-2 mt-4">
-            <p className="text-xs text-muted-foreground/50 px-1">Past 7 Days</p>
-            {Array.from({ length: 7 }, (_, i) => {
-              return getLocalDateStr(-(i + 1));
-            }).map(dateStr => {
-              const dayTasks = historyTasks[dateStr] || [];
-              const isExp = expandedDays[dateStr] ?? false;
-              const completedCount = dayTasks.filter((task: any) => task.status === 'completed').length;
-              const partialCount = dayTasks.filter((task: any) => task.status === 'partially_completed').length;
-              const missedCount = dayTasks.filter((task: any) => task.status === 'missed').length;
-              const totalCount = dayTasks.length;
-              const score = totalCount > 0 ? Math.round(((completedCount + partialCount * 0.6) / totalCount) * 100) : null;
-              const label = new Date(dateStr + 'T00:00:00').toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
-              const scoreColor = score !== null ? (score >= 80 ? 'bg-green-100 text-green-700' : score >= 50 ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-700') : '';
-
-              return (
-                <GlassCard key={dateStr} className="overflow-hidden">
-                  <div
-                    className="p-3 flex items-center justify-between cursor-pointer"
-                    style={{ minHeight: 48 }}
-                    onClick={() => setExpandedDays(prev => ({ ...prev, [dateStr]: !isExp }))}
-                  >
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm text-foreground">{label}</span>
-                      {totalCount === 0 && <span className="text-xs text-muted-foreground/40 italic">No tasks</span>}
-                    </div>
-                    <div className="flex items-center gap-3">
-                      {score !== null ? (
-                        <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${scoreColor}`}>{score}%</span>
-                      ) : (
-                        <span className="text-xs text-muted-foreground/50">—</span>
-                      )}
-                      {totalCount > 0 && (
-                        <div className="flex items-center gap-1">
-                          <span className="text-[10px] text-green-400">{completedCount}</span>
-                          {partialCount > 0 && <span className="text-[10px] text-amber-400">+{partialCount}p</span>}
-                          {missedCount > 0 && <span className="text-[10px] text-red-400">{missedCount}m</span>}
-                        </div>
-                      )}
-                      <motion.div animate={{ rotate: isExp ? 180 : 0 }} transition={{ duration: 0.2 }}>
-                        <ChevronDown size={15} className="text-muted-foreground/50" />
-                      </motion.div>
-                    </div>
-                  </div>
-                  <AnimatePresence>
-                    {isExp && dayTasks.length > 0 && (
-                      <motion.div
-                        initial={{ height: 0, opacity: 0 }}
-                        animate={{ height: 'auto', opacity: 1 }}
-                        exit={{ height: 0, opacity: 0 }}
-                        transition={{ duration: 0.2 }}
-                        className="overflow-hidden"
-                      >
-                        <div className="px-3 pb-3 border-t border-border/30 space-y-2 pt-2">
-                          {dayTasks.map((task: any) => (
-                            <div key={task.id} className={`flex items-center gap-3 py-1.5 px-2 rounded-lg bg-accent/30 ${task.status === 'completed' ? 'opacity-60' : ''}`}>
-                              <div className={`w-4 h-4 rounded-full border flex items-center justify-center shrink-0 ${
-                                task.status === 'completed' ? 'bg-green-500 border-green-500' :
-                                task.status === 'missed' ? 'bg-red-500/30 border-red-500' :
-                                task.status === 'partially_completed' ? 'bg-amber-500/30 border-amber-500' :
-                                'border-border'
-                              }`}>
-                                <StatusIcon status={task.status} />
-                              </div>
-                              <div className="flex-1 min-w-0">
-                                <p className={`text-xs ${task.status === 'completed' ? 'line-through text-muted-foreground/50' : 'text-foreground'}`}>{task.title}</p>
-                                <div className="flex items-center gap-2 mt-0.5">
-                                  <StatusBadge status={task.status} />
-                                  {task.reflectionNote && <span className="text-[10px] text-amber-400/70 italic">&ldquo;{task.reflectionNote.substring(0, 40)}{task.reflectionNote.length > 40 ? '...' : ''}&rdquo;</span>}
-                                </div>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </motion.div>
+            <AnimatePresence>
+              {!tomorrowCollapsed && (
+                <motion.div
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: 'auto', opacity: 1 }}
+                  exit={{ height: 0, opacity: 0 }}
+                  transition={{ duration: 0.2 }}
+                >
+                  <div id="tomorrow-section">
+                    <TaskTableHeader />
+                    <InlineAddTask defaultDate="tomorrow" today={today} tomorrow={tomorrow} onRefresh={refreshTab} />
+                    {filteredTomorrowTasks.length > 0 ? (
+                      filteredTomorrowTasks.map((task: any) => (
+                        <NotionTaskRow
+                          key={task.id}
+                          task={task}
+                          currentTab="tomorrow"
+                          isExpanded={expandedTask === task.id}
+                          onToggleExpand={(id) => setExpandedTask(prev => prev === id ? null : id)}
+                          onToggleTask={toggleTask}
+                          onUpdateTaskStatus={updateTaskStatus}
+                          onDeleteTask={deleteTask}
+                          onSetReflectionModal={setReflectionModal}
+                          onRefresh={refreshTab}
+                          onPriorityChange={changePriority}
+                        />
+                      ))
+                    ) : (
+                      <div className="px-4 py-6 text-center text-muted-foreground/40 text-sm">
+                        No tasks planned for tomorrow yet.
+                      </div>
                     )}
-                  </AnimatePresence>
-                </GlassCard>
-              );
-            })}
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </GlassCard>
+
+          {/* Action buttons */}
+          <div className="flex gap-2">
+            <Button onClick={rankUnproductive} variant="ghost" className="text-purple-400 hover:text-purple-300 text-xs">
+              <Sparkles size={14} className="mr-1" />{t('time.aiRankUnproductive')}
+            </Button>
+            <Button
+              onClick={async () => {
+                await fetch('/api/time/tasks', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ resetAll: true }) });
+                fetchTasks();
+                window.dispatchEvent(new CustomEvent('xp-updated'));
+                window.dispatchEvent(new CustomEvent('notification-updated'));
+              }}
+              variant="ghost"
+              className="text-red-400 hover:text-red-300 text-xs"
+            >
+              {t('common.reset')} All
+            </Button>
           </div>
+
+          {/* ── Past 7 Days (collapsible) ── */}
+          <GlassCard className="overflow-hidden">
+            <div
+              className="flex items-center justify-between px-4 py-3 cursor-pointer hover:bg-accent/10 transition-colors"
+              onClick={() => setHistoryCollapsed(!historyCollapsed)}
+            >
+              <div className="flex items-center gap-2">
+                {historyCollapsed ? <ChevronRight size={14} className="text-muted-foreground/40" /> : <ChevronDown size={14} className="text-muted-foreground/40" />}
+                <span className="text-sm font-semibold text-foreground">Past 7 Days</span>
+              </div>
+            </div>
+
+            <AnimatePresence>
+              {!historyCollapsed && (
+                <motion.div
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: 'auto', opacity: 1 }}
+                  exit={{ height: 0, opacity: 0 }}
+                  transition={{ duration: 0.2 }}
+                  className="max-h-96 overflow-y-auto"
+                >
+                  <div className="space-y-0">
+                    {Array.from({ length: 7 }, (_, i) => getLocalDateStr(-(i + 1))).map(dateStr => {
+                      const dayTasks = historyTasks[dateStr] || [];
+                      const isExp = expandedDays[dateStr] ?? false;
+                      const completedCount = dayTasks.filter((task: any) => task.status === 'completed').length;
+                      const partialCount = dayTasks.filter((task: any) => task.status === 'partially_completed').length;
+                      const missedCount = dayTasks.filter((task: any) => task.status === 'missed').length;
+                      const totalCount = dayTasks.length;
+                      const score = totalCount > 0 ? Math.round(((completedCount + partialCount * 0.6) / totalCount) * 100) : null;
+                      const label = new Date(dateStr + 'T00:00:00').toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
+                      const scoreColor = score !== null ? (score >= 80 ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/25' : score >= 50 ? 'bg-amber-500/15 text-amber-400 border-amber-500/25' : 'bg-red-500/15 text-red-400 border-red-500/25') : '';
+
+                      return (
+                        <div key={dateStr} className="border-b border-border/10 last:border-b-0">
+                          <div
+                            className="flex items-center justify-between px-4 py-2.5 cursor-pointer hover:bg-accent/10 transition-colors"
+                            onClick={() => setExpandedDays(prev => ({ ...prev, [dateStr]: !isExp }))}
+                          >
+                            <div className="flex items-center gap-2">
+                              {isExp ? <ChevronDown size={12} className="text-muted-foreground/40" /> : <ChevronRight size={12} className="text-muted-foreground/40" />}
+                              <span className="text-xs text-foreground">{label}</span>
+                              {totalCount === 0 && <span className="text-[10px] text-muted-foreground/30 italic">No tasks</span>}
+                            </div>
+                            <div className="flex items-center gap-2">
+                              {score !== null && (
+                                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${scoreColor}`}>{score}%</span>
+                              )}
+                              {totalCount > 0 && (
+                                <div className="flex items-center gap-1">
+                                  <span className="text-[10px] text-emerald-400">{completedCount}</span>
+                                  {partialCount > 0 && <span className="text-[10px] text-amber-400">+{partialCount}p</span>}
+                                  {missedCount > 0 && <span className="text-[10px] text-red-400">{missedCount}m</span>}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                          <AnimatePresence>
+                            {isExp && dayTasks.length > 0 && (
+                              <motion.div
+                                initial={{ height: 0, opacity: 0 }}
+                                animate={{ height: 'auto', opacity: 1 }}
+                                exit={{ height: 0, opacity: 0 }}
+                                transition={{ duration: 0.15 }}
+                                className="overflow-hidden"
+                              >
+                                <div className="px-4 pb-3 space-y-1">
+                                  {dayTasks.map((task: any) => (
+                                    <div
+                                      key={task.id}
+                                      className={`grid grid-cols-[20px_1fr_70px_50px] gap-2 px-2 py-1.5 rounded-lg items-center ${task.status === 'completed' ? 'opacity-40' : ''}`}
+                                    >
+                                      <div className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 ${
+                                        task.status === 'completed' ? 'bg-emerald-500 border-emerald-500' :
+                                        task.status === 'missed' ? 'bg-red-500/20 border-red-500' :
+                                        task.status === 'partially_completed' ? 'bg-amber-500/20 border-amber-500' :
+                                        'border-border/40'
+                                      }`}>
+                                        {task.status === 'completed' && <Check size={9} className="text-white" />}
+                                        {task.status === 'missed' && <AlertTriangle size={8} className="text-red-400" />}
+                                      </div>
+                                      <div className="min-w-0">
+                                        <p className={`text-xs truncate ${task.status === 'completed' ? 'line-through text-muted-foreground/40' : 'text-foreground'}`}>{task.title}</p>
+                                      </div>
+                                      <StatusChip status={task.status} readOnly />
+                                      <PriorityChip priority={task.priority || 'medium'} readOnly />
+                                    </div>
+                                  ))}
+                                </div>
+                              </motion.div>
+                            )}
+                          </AnimatePresence>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </GlassCard>
         </TabsContent>
 
-        {/* Review Tab */}
+        {/* ═══════════ Review Tab ═══════════ */}
         <TabsContent value="review" className="space-y-4 mt-4">
           <ReviewTab reviewData={reviewData} />
         </TabsContent>
 
-        {/* Focus Timer Tab */}
+        {/* ═══════════ Focus Timer Tab ═══════════ */}
         <TabsContent value="focusTimer" className="space-y-4 mt-4">
           <GlassCard className="p-6 flex flex-col items-center">
             <div className="flex gap-2 mb-6 flex-wrap justify-center">
@@ -914,10 +1514,14 @@ export default function TimeClient() {
           </div>
         </TabsContent>
 
-        {/* AI Coach Tab */}
+        {/* ═══════════ AI Coach Tab ═══════════ */}
         <TabsContent value="aiCoach" className="space-y-4 mt-4">
           <GlassCard className="p-4 h-[500px] flex flex-col">
-            <div className="flex items-center gap-2 mb-3"><Bot size={18} className="text-purple-400" /><span className="text-sm font-medium text-foreground">{t('time.aiCoach')}</span><button onClick={startNewChat} className="ml-auto text-xs text-muted-foreground hover:text-blue-400 flex items-center gap-1"><Plus size={12} />New Chat</button></div>
+            <div className="flex items-center gap-2 mb-3">
+              <Bot size={18} className="text-purple-400" />
+              <span className="text-sm font-medium text-foreground">{t('time.aiCoach')}</span>
+              <button onClick={startNewChat} className="ml-auto text-xs text-muted-foreground hover:text-blue-400 flex items-center gap-1"><Plus size={12} />New Chat</button>
+            </div>
             <div className="flex-1 overflow-y-auto space-y-3 mb-3">
               {chatMessages.length === 0 && <p className="text-center text-muted-foreground/50 py-8 text-sm">{t('ai.askAnything')}</p>}
               {chatMessages.map((msg, i) => (
@@ -936,7 +1540,7 @@ export default function TimeClient() {
         </TabsContent>
       </Tabs>
 
-      {/* Reflection Modal */}
+      {/* ── Reflection Modal ── */}
       <AnimatePresence>
         {reflectionModal && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4" onClick={() => setReflectionModal(null)}>
@@ -947,7 +1551,7 @@ export default function TimeClient() {
               </div>
               <p className="text-xs text-muted-foreground mb-3">
                 <span className="font-medium text-foreground">{reflectionModal.title}</span>
-                <span className="ml-2"><StatusBadge status={reflectionModal.status} /></span>
+                <span className="ml-2"><StatusChip status={reflectionModal.status} readOnly /></span>
               </p>
               <div className="flex flex-wrap gap-1.5 mb-3">
                 {['Unexpected assignment', 'Time conflict', 'Health issue', 'Underestimated effort', 'Distraction', 'Lack of energy', 'Poor planning'].map(reason => (
