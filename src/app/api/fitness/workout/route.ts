@@ -153,6 +153,33 @@ export async function POST(request: Request) {
   }
 }
 
+export async function PATCH(request: Request) {
+  try {
+    const userId = await getUserId();
+    const body = await request.json();
+    const { id, notes } = body;
+
+    if (!id) {
+      return NextResponse.json({ error: 'Workout ID required' }, { status: 400 });
+    }
+
+    const existing = await db.fitnessWorkoutLog.findUnique({ where: { id } });
+    if (!existing || existing.userId !== userId) {
+      return NextResponse.json({ error: 'Workout not found' }, { status: 404 });
+    }
+
+    const updated = await db.fitnessWorkoutLog.update({
+      where: { id },
+      data: { notes: notes ?? existing.notes },
+    });
+
+    return NextResponse.json({ workout: updated });
+  } catch (error) {
+    console.error('Workout PATCH error:', error);
+    return NextResponse.json({ error: 'Failed to update workout' }, { status: 500 });
+  }
+}
+
 export async function DELETE(request: Request) {
   try {
     const userId = await getUserId();

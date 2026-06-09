@@ -17,6 +17,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useUserStore } from '@/stores/user-store';
 import { t } from '@/lib/i18n';
 import { WorkoutChart, CalorieChart } from './_charts';
+import { WorkoutTracker } from './_workout-tracker';
+import { WorkoutStatus } from './_workout-card';
 
 const TABS_LIST = ['overview', 'nutrition', 'workouts', 'progress', 'aiCoach'];
 const ACTIVITY_LEVELS = ['sedentary', 'light', 'moderate', 'active', 'very_active'];
@@ -544,6 +546,38 @@ export default function FitnessClient() {
       fetchProfile();
     } catch {}
   }
+
+  // Workout Tracker callbacks — used by WorkoutTracker in Progress tab
+  const handleTrackerAddWorkout = useCallback((date: string) => {
+    setSelectedWorkoutDate(date);
+    setWorkoutStep('type');
+    setActiveTab('workouts');
+  }, []);
+
+  const handleTrackerEditWorkout = useCallback((workout: any) => {
+    setSelectedWorkoutDate(workout.date || today);
+    setSelectedWorkoutType(workout.workoutType);
+    setMuscleGroup(workout.muscleGroup || 'chest');
+    setWorkoutSets(workout.sets?.toString() || '');
+    setWorkoutReps(workout.reps?.toString() || '');
+    setWorkoutLoad(workout.loadKg?.toString() || '');
+    setWorkoutDuration(workout.duration?.toString() || '');
+    setWorkoutStep('log');
+    setActiveTab('workouts');
+  }, [today]);
+
+  const handleTrackerUpdateNotes = useCallback(async (id: string, notes: string) => {
+    try {
+      await fetch('/api/fitness/workout', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, notes }),
+      });
+      // Update local state so the card reflects the change
+      setWorkouts(prev => prev.map(w => w.id === id ? { ...w, notes } : w));
+      setAllWorkouts(prev => prev.map(w => w.id === id ? { ...w, notes } : w));
+    } catch {}
+  }, []);
 
   async function sendChat() {
     if (!chatInput.trim()) return;
@@ -1681,16 +1715,14 @@ export default function FitnessClient() {
             <p className="text-[10px] text-muted-foreground/50 mt-1">Targets auto-recalculate when weight changes</p>
           </GlassCard>
 
-          {/* Workout Calories Trend Chart */}
-          {workoutChartArr.length >= 1 && (
-            <GlassCard variant="glowing" className="p-4">
-              <div className="flex items-center gap-2 mb-3">
-                <Activity size={16} className="text-red-400" />
-                <h3 className="text-sm font-medium text-muted-foreground">Workout Calories Trend</h3>
-              </div>
-              <WorkoutChart data={workoutChartArr} />
-            </GlassCard>
-          )}
+          {/* Workout Tracker — Notion-inspired Timeline/Board view */}
+          <WorkoutTracker
+            workouts={allWorkoutsDeduped}
+            onDeleteWorkout={deleteWorkout}
+            onAddWorkout={handleTrackerAddWorkout}
+            onEditWorkout={handleTrackerEditWorkout}
+            onUpdateNotes={handleTrackerUpdateNotes}
+          />
 
           {/* Calorie Balance Chart */}
           {(() => {
