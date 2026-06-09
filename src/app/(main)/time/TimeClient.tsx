@@ -402,7 +402,7 @@ function ReviewTab({ reviewData }: { reviewData: any }) {
 
 export default function TimeClient() {
   const { profile } = useUserStore();
-  const [activeTab, setActiveTab] = useState('today');
+  const [activeTab, setActiveTab] = useState('planner');
   const [tasks, setTasks] = useState<any[]>([]);
   const [tomorrowTasks, setTomorrowTasks] = useState<any[]>([]);
   const [focusSessions, setFocusSessions] = useState<any[]>([]);
@@ -657,14 +657,14 @@ export default function TimeClient() {
 
   return (
     <div className="max-w-4xl mx-auto space-y-4">
-      {isAfter7PM() && activeTab === 'today' && (
+      {isAfter7PM() && activeTab === 'planner' && (
         <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="bg-gradient-to-r from-indigo-600/20 to-purple-600/20 border border-indigo-500/30 rounded-xl p-3 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Moon size={18} className="text-indigo-400" />
             <span className="text-sm text-foreground font-medium">Plan Tomorrow</span>
             <span className="text-xs text-muted-foreground">— Set up tomorrow&apos;s tasks now</span>
           </div>
-          <Button onClick={() => setActiveTab('tomorrow')} size="sm" className="gradient-blue text-xs h-7">Plan Tomorrow</Button>
+          <Button onClick={() => setUpcomingExpanded(true)} size="sm" className="gradient-blue text-xs h-7">Plan Tomorrow</Button>
         </motion.div>
       )}
 
@@ -672,19 +672,19 @@ export default function TimeClient() {
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList className="bg-accent border border-border w-full flex overflow-x-auto">
-          {['today', 'tomorrow', 'review', 'focusTimer', 'aiCoach'].map(tab => (
+          {['planner', 'review', 'focusTimer', 'aiCoach'].map(tab => (
             <TabsTrigger key={tab} value={tab} className="text-muted-foreground data-[state=active]:text-blue-400 data-[state=active]:bg-blue-600/20 text-xs flex-1">
-              {tab === 'tomorrow' ? (isAfter7PM() ? '🌙 Tomorrow' : 'Tomorrow') :
+              {tab === 'planner' ? (isAfter7PM() ? '🌙 Planner' : '📋 Planner') :
                tab === 'review' ? 'Review' :
                tab === 'focusTimer' ? 'Focus' :
                tab === 'aiCoach' ? 'AI Coach' :
-               'Today'}
+               tab}
             </TabsTrigger>
           ))}
         </TabsList>
 
-        {/* Today Tab */}
-        <TabsContent value="today" className="space-y-4 mt-4">
+        {/* Planner Tab */}
+        <TabsContent value="planner" className="space-y-4 mt-4">
           {planningInsights.length > 0 && (
             <GlassCard className="p-3 border-purple-500/20">
               <div className="flex items-center gap-2 mb-2">
@@ -715,36 +715,50 @@ export default function TimeClient() {
             )}
           </div>
 
-          {/* ── Upcoming Scheduled Tasks (Tomorrow preview) ── */}
-          {tomorrowTasks.length > 0 && (
-            <div className="space-y-2">
-              <button
-                onClick={() => setUpcomingExpanded(!upcomingExpanded)}
-                className="flex items-center gap-2 px-1 w-full text-left"
-              >
-                <motion.div animate={{ rotate: upcomingExpanded ? 180 : 0 }} transition={{ duration: 0.2 }}>
-                  <ChevronDown size={14} className="text-indigo-400" />
+          {/* ── Plan Tomorrow Button ── */}
+          <Button
+            onClick={() => setUpcomingExpanded(true)}
+            variant="ghost"
+            className="w-full text-indigo-400 hover:text-indigo-300 hover:bg-indigo-600/10 text-xs border border-indigo-500/20"
+          >
+            <Moon size={14} className="mr-1" /> Plan Tomorrow
+          </Button>
+
+          {/* ── Tomorrow's Tasks (collapsible) ── */}
+          <div className="space-y-2">
+            <button
+              onClick={() => setUpcomingExpanded(!upcomingExpanded)}
+              className="flex items-center gap-2 px-1 w-full text-left"
+            >
+              <motion.div animate={{ rotate: upcomingExpanded ? 180 : 0 }} transition={{ duration: 0.2 }}>
+                <ChevronDown size={14} className="text-indigo-400" />
+              </motion.div>
+              <span className="text-xs font-semibold text-indigo-400">Tomorrow</span>
+              <span className="text-[10px] text-muted-foreground/50">{tomorrowTasks.length} task{tomorrowTasks.length !== 1 ? 's' : ''}</span>
+              {!upcomingExpanded && tomorrowTasks.length > 0 && (
+                <span className="text-[10px] text-muted-foreground/40 ml-auto">{tomorrowTasks.length} tasks planned</span>
+              )}
+            </button>
+            <AnimatePresence>
+              {upcomingExpanded && (
+                <motion.div
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: 'auto', opacity: 1 }}
+                  exit={{ height: 0, opacity: 0 }}
+                  transition={{ duration: 0.2 }}
+                  className="overflow-hidden space-y-2"
+                >
+                  <AddTaskForm defaultDate="tomorrow" today={today} tomorrow={tomorrow} filterCategory={filterCategory} onSetFilterCategory={setFilterCategory} onRefresh={refreshTab} />
+                  {filteredTomorrowTasks.map((task: any) => (
+                    <TaskCard key={task.id} task={task} currentTab="tomorrow" onToggleTask={toggleTask} onUpdateTaskStatus={updateTaskStatus} onDeleteTask={deleteTask} onSetReflectionModal={setReflectionModal} onRefresh={refreshTab} />
+                  ))}
+                  {tomorrowTasks.length === 0 && (
+                    <p className="text-center text-muted-foreground/50 py-4 text-sm">No tasks planned for tomorrow yet.</p>
+                  )}
                 </motion.div>
-                <span className="text-xs font-semibold text-indigo-400">Tomorrow</span>
-                <span className="text-[10px] text-muted-foreground/50">{tomorrowTasks.length} task{tomorrowTasks.length !== 1 ? 's' : ''}</span>
-              </button>
-              <AnimatePresence>
-                {upcomingExpanded && (
-                  <motion.div
-                    initial={{ height: 0, opacity: 0 }}
-                    animate={{ height: 'auto', opacity: 1 }}
-                    exit={{ height: 0, opacity: 0 }}
-                    transition={{ duration: 0.2 }}
-                    className="overflow-hidden space-y-2"
-                  >
-                    {filteredTomorrowTasks.map((task: any) => (
-                      <TaskCard key={task.id} task={task} currentTab="tomorrow" onToggleTask={toggleTask} onUpdateTaskStatus={updateTaskStatus} onDeleteTask={deleteTask} onSetReflectionModal={setReflectionModal} onRefresh={refreshTab} />
-                    ))}
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </div>
-          )}
+              )}
+            </AnimatePresence>
+          </div>
 
           <div className="flex gap-2">
             <Button onClick={rankUnproductive} variant="ghost" className="text-purple-400 hover:text-purple-300 text-xs"><Sparkles size={14} className="mr-1" />{t('time.aiRankUnproductive')}</Button>
@@ -832,23 +846,6 @@ export default function TimeClient() {
                 </GlassCard>
               );
             })}
-          </div>
-        </TabsContent>
-
-        {/* Tomorrow Tab */}
-        <TabsContent value="tomorrow" className="space-y-4 mt-4">
-          <AddTaskForm defaultDate="tomorrow" today={today} tomorrow={tomorrow} filterCategory={filterCategory} onSetFilterCategory={setFilterCategory} onRefresh={refreshTab} />
-          <div className="space-y-2">
-            {filteredTomorrowTasks.map((task: any) => (
-              <TaskCard key={task.id} task={task} currentTab="tomorrow" onToggleTask={toggleTask} onUpdateTaskStatus={updateTaskStatus} onDeleteTask={deleteTask} onSetReflectionModal={setReflectionModal} onRefresh={refreshTab} />
-            ))}
-            {tomorrowTasks.length === 0 && (
-              <div className="text-center py-8">
-                <Moon size={32} className="text-indigo-400/30 mx-auto mb-2" />
-                <p className="text-sm text-muted-foreground/50">No tasks planned for tomorrow yet.</p>
-                <p className="text-xs text-muted-foreground/30 mt-1">Plan ahead — add tasks above to set up your day.</p>
-              </div>
-            )}
           </div>
         </TabsContent>
 
