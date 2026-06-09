@@ -1,9 +1,9 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
-import { Dumbbell, Plus, Trash2, Sparkles, Send, Bot, Loader2, Target, Flame, Utensils, Scale, Activity, Edit, Save, X, TrendingUp, ChevronLeft, ChevronDown, Video, Beef, AlertCircle, Zap } from 'lucide-react';
+import { Dumbbell, Plus, Trash2, Sparkles, Send, Bot, Loader2, Target, Flame, Utensils, Scale, Activity, Edit, Save, X, TrendingUp, ChevronLeft, ChevronDown, Video, Beef, AlertCircle, Zap, Timer, Check, Circle, Star, Play, Pause, RotateCcw, Clock, StickyNote, CalendarCheck } from 'lucide-react';
 import { GlassCard } from '@/components/glass-card';
 import { AIMessage } from '@/components/ai-message';
 import { AdCard } from '@/components/ad-banner';
@@ -176,6 +176,22 @@ export default function FitnessClient() {
   const [workoutLoad, setWorkoutLoad] = useState('');
   const [workoutProgressExpanded, setWorkoutProgressExpanded] = useState(false);
 
+  // Hevy-style workout form state
+  const [exerciseName, setExerciseName] = useState('');
+  const [exerciseSets, setExerciseSets] = useState<Array<{ weight: string; reps: string; done: boolean }>>([
+    { weight: '', reps: '', done: false },
+  ]);
+  const [workoutNotes, setWorkoutNotes] = useState('');
+  const [restTimerSeconds, setRestTimerSeconds] = useState(90);
+  const [restTimerRunning, setRestTimerRunning] = useState(false);
+  const restTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Tomorrow's planned workout state
+  const [tomorrowWorkoutPlans, setTomorrowWorkoutPlans] = useState<any[]>([]);
+  const [tomorrowPlanExpanded, setTomorrowPlanExpanded] = useState(false);
+  const [tomorrowPlanType, setTomorrowPlanType] = useState('');
+  const [tomorrowPlanMuscle, setTomorrowPlanMuscle] = useState('chest');
+
   const fetchProfile = useCallback(async () => {
     try {
       const r = await fetch('/api/fitness/profile');
@@ -307,6 +323,25 @@ export default function FitnessClient() {
     }, 300);
     return () => { clearTimeout(timer); };
   }, [fetchProfile, fetchFoodLogs, fetchWorkouts, fetchWeights]);
+
+  // Rest timer countdown effect
+  useEffect(() => {
+    if (restTimerRunning && restTimerSeconds > 0) {
+      restTimerRef.current = setInterval(() => {
+        setRestTimerSeconds(prev => {
+          if (prev <= 1) {
+            setRestTimerRunning(false);
+            if (restTimerRef.current) clearInterval(restTimerRef.current);
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    } else {
+      if (restTimerRef.current) clearInterval(restTimerRef.current);
+    }
+    return () => { if (restTimerRef.current) clearInterval(restTimerRef.current); };
+  }, [restTimerRunning]);
 
   const totalMacros = foodLogs.reduce((acc: any, f: any) => ({
     calories: acc.calories + (f.calories || 0),
@@ -455,6 +490,14 @@ export default function FitnessClient() {
   }
 
   async function addWorkout() {
+    // Use Hevy-style exerciseSets for Weight Training if available
+    const lastSet = exerciseSets[exerciseSets.length - 1];
+    const hevySets = selectedWorkoutType === 'Weight Training' && lastSet ? exerciseSets.length : undefined;
+    const hevyReps = selectedWorkoutType === 'Weight Training' && lastSet ? (parseInt(lastSet.reps) || undefined) : undefined;
+    const hevyLoadKg = selectedWorkoutType === 'Weight Training' && lastSet && lastSet.weight
+      ? (isImperial ? lbsToKg(parseFloat(lastSet.weight)) : parseFloat(lastSet.weight)) || undefined
+      : undefined;
+
     try {
       const r = await fetch('/api/fitness/workout', {
         method: 'POST',
@@ -465,9 +508,9 @@ export default function FitnessClient() {
           estimatedCalories: estimatedBurn?.estimatedCalories || 0,
           date: selectedWorkoutDate,
           muscleGroup: selectedWorkoutType === 'Weight Training' ? muscleGroup : undefined,
-          sets: selectedWorkoutType === 'Weight Training' ? parseInt(workoutSets) || undefined : undefined,
-          reps: selectedWorkoutType === 'Weight Training' ? parseInt(workoutReps) || undefined : undefined,
-          loadKg: selectedWorkoutType === 'Weight Training' ? (isImperial ? lbsToKg(parseFloat(workoutLoad)) : parseFloat(workoutLoad)) || undefined : undefined,
+          sets: hevySets ?? (selectedWorkoutType === 'Weight Training' ? parseInt(workoutSets) || undefined : undefined),
+          reps: hevyReps ?? (selectedWorkoutType === 'Weight Training' ? parseInt(workoutReps) || undefined : undefined),
+          loadKg: hevyLoadKg ?? (selectedWorkoutType === 'Weight Training' ? (isImperial ? lbsToKg(parseFloat(workoutLoad)) : parseFloat(workoutLoad)) || undefined : undefined),
           workoutSplit: fitnessProfile?.workoutSplit || undefined,
         }),
       });
@@ -483,6 +526,11 @@ export default function FitnessClient() {
         setMuscleGroup('chest');
         setWorkoutSets(''); setWorkoutReps(''); setWorkoutLoad('');
         setWorkoutDuration(''); setEstimatedBurn(null);
+        // Reset Hevy-style form state
+        setExerciseName('');
+        setExerciseSets([{ weight: '', reps: '', done: false }]);
+        setWorkoutNotes('');
+        setRestTimerSeconds(90); setRestTimerRunning(false);
         if (selectedWorkoutDate !== today) fetchWorkoutForDate(selectedWorkoutDate);
         await fetchWorkouts();
         fetchAllWorkouts(); // Refresh chart data
@@ -1497,7 +1545,16 @@ export default function FitnessClient() {
                 {WEIGHT_TYPES.map(type => (
                   <button
                     key={type}
-                    onClick={() => { setSelectedWorkoutType(type); setWorkoutStep('log'); setEstimatedBurn(null); }}
+                    onClick={() => {
+                      setSelectedWorkoutType(type);
+                      setExerciseName(type === 'Weight Training' ? '' : type);
+                      setExerciseSets([{ weight: '', reps: '', done: false }]);
+                      setWorkoutNotes('');
+                      setWorkoutStep('log');
+                      setEstimatedBurn(null);
+                      setRestTimerSeconds(90);
+                      setRestTimerRunning(false);
+                    }}
                     className="p-3 rounded-xl bg-accent border border-border hover:border-blue-500/40 hover:bg-blue-600/10 transition-all text-left"
                   >
                     <p className="text-sm font-medium text-foreground">{type}</p>
@@ -1510,71 +1567,249 @@ export default function FitnessClient() {
             </GlassCard>
           )}
 
-          {/* Step 2: Log the workout (dynamic based on type) */}
+          {/* Step 2: Hevy-style exercise card layout */}
           {workoutStep === 'log' && (
             <GlassCard variant="glassmorphism" className="p-4">
-              <div className="flex items-center gap-2 mb-4">
-                <button onClick={() => setWorkoutStep('type')} className="text-muted-foreground hover:text-foreground">
-                  <ChevronLeft size={18} />
+              {/* Header bar */}
+              <div className="flex items-center gap-2 mb-5">
+                <button onClick={() => setWorkoutStep('type')} className="text-muted-foreground hover:text-foreground transition-colors">
+                  <ChevronLeft size={20} />
                 </button>
-                <h3 className="text-sm font-medium text-foreground">{selectedWorkoutType}</h3>
-                <span className="text-xs text-muted-foreground ml-auto">{selectedWorkoutDate === today ? 'Today' : selectedWorkoutDate}</span>
+                <div className="flex-1">
+                  <h3 className="text-base font-semibold text-foreground">{selectedWorkoutType}</h3>
+                </div>
+                <span className="text-xs text-muted-foreground flex items-center gap-1">
+                  <Clock size={12} />
+                  {selectedWorkoutDate === today ? 'Today' : selectedWorkoutDate}
+                </span>
               </div>
 
-              {/* Weight Training: muscle group + sets/reps/load */}
+              {/* Exercise name input */}
+              <div className="mb-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <div className="h-px flex-1 bg-gradient-to-r from-blue-500/50 to-transparent" />
+                  <span className="text-xs font-medium text-blue-400 uppercase tracking-wider">Exercise</span>
+                  <div className="h-px flex-1 bg-gradient-to-l from-blue-500/50 to-transparent" />
+                </div>
+                <Input
+                  value={exerciseName}
+                  onChange={e => setExerciseName(e.target.value)}
+                  placeholder={selectedWorkoutType === 'Weight Training' ? 'e.g. Lat Pulldown' : selectedWorkoutType}
+                  className="bg-accent/50 border-border/50 text-foreground text-center font-medium"
+                />
+              </div>
+
+              {/* Muscle group selector for Weight Training */}
               {selectedWorkoutType === 'Weight Training' && (
-                <div className="space-y-3 mb-3">
-                  <div>
-                    <Label className="text-muted-foreground text-xs mb-1.5 block">Muscle Group</Label>
-                    <div className="flex flex-wrap gap-1.5">
-                      {MUSCLE_GROUPS.map(mg => (
-                        <button
-                          key={mg}
-                          onClick={() => setMuscleGroup(mg)}
-                          className={`text-xs px-3 py-1 rounded-full border transition-all ${
-                            muscleGroup === mg
-                              ? 'bg-blue-600/30 border-blue-500/50 text-blue-300'
-                              : 'bg-accent border-border text-muted-foreground hover:border-blue-500/30'
-                          }`}
-                        >
-                          {MUSCLE_GROUP_META[mg].icon} {MUSCLE_GROUP_META[mg].label}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-3 gap-2">
-                    <div>
-                      <Label className="text-muted-foreground text-xs mb-1 block">Sets</Label>
-                      <Input type="number" value={workoutSets} onChange={e => setWorkoutSets(e.target.value)} placeholder="e.g. 4" className="bg-accent border-border text-foreground" />
-                    </div>
-                    <div>
-                      <Label className="text-muted-foreground text-xs mb-1 block">Reps</Label>
-                      <Input type="number" value={workoutReps} onChange={e => setWorkoutReps(e.target.value)} placeholder="e.g. 10" className="bg-accent border-border text-foreground" />
-                    </div>
-                    <div>
-                      <Label className="text-muted-foreground text-xs mb-1 block">Load ({weightUnit})</Label>
-                      <Input type="number" value={workoutLoad} onChange={e => setWorkoutLoad(e.target.value)} placeholder="e.g. 80" className="bg-accent border-border text-foreground" />
-                    </div>
+                <div className="mb-4">
+                  <Label className="text-muted-foreground text-xs mb-1.5 block flex items-center gap-1">
+                    <Target size={12} /> Muscle Group
+                  </Label>
+                  <div className="flex flex-wrap gap-1.5">
+                    {MUSCLE_GROUPS.map(mg => (
+                      <button
+                        key={mg}
+                        onClick={() => setMuscleGroup(mg)}
+                        className={`text-xs px-3 py-1.5 rounded-full border transition-all ${
+                          muscleGroup === mg
+                            ? 'bg-blue-600/30 border-blue-500/50 text-blue-300'
+                            : 'bg-accent border-border text-muted-foreground hover:border-blue-500/30'
+                        }`}
+                      >
+                        {MUSCLE_GROUP_META[mg].icon} {MUSCLE_GROUP_META[mg].label}
+                      </button>
+                    ))}
                   </div>
                 </div>
               )}
 
-              {/* Duration (all types) */}
-              <div className="mb-3">
-                <Label className="text-muted-foreground text-xs mb-1 block">Duration (min)</Label>
-                <Input type="number" value={workoutDuration} onChange={e => setWorkoutDuration(e.target.value)} placeholder="e.g. 45" className="bg-accent border-border text-foreground" />
+              {/* Sets table - Hevy style */}
+              {selectedWorkoutType === 'Weight Training' && (
+                <div className="mb-4">
+                  {/* Table header */}
+                  <div className="grid grid-cols-[2rem_1fr_1fr_2rem] gap-2 mb-2 px-1">
+                    <span className="text-[10px] text-muted-foreground/50 font-medium text-center">Set</span>
+                    <span className="text-[10px] text-muted-foreground/50 font-medium text-center">{weightUnit}</span>
+                    <span className="text-[10px] text-muted-foreground/50 font-medium text-center">Reps</span>
+                    <span className="text-[10px] text-muted-foreground/50 font-medium text-center">✓</span>
+                  </div>
+                  {/* Set rows */}
+                  <div className="space-y-1.5">
+                    {exerciseSets.map((set, idx) => (
+                      <motion.div
+                        key={idx}
+                        initial={{ opacity: 0, y: -8 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.15 }}
+                        className={`grid grid-cols-[2rem_1fr_1fr_2rem] gap-2 items-center p-1.5 rounded-lg transition-all ${
+                          set.done ? 'bg-emerald-500/10 border border-emerald-500/20' : 'bg-accent/40 border border-transparent'
+                        }`}
+                      >
+                        <span className="text-xs text-muted-foreground font-medium text-center">{idx + 1}</span>
+                        <Input
+                          type="number"
+                          value={set.weight}
+                          onChange={e => {
+                            const newSets = [...exerciseSets];
+                            newSets[idx] = { ...newSets[idx], weight: e.target.value };
+                            setExerciseSets(newSets);
+                          }}
+                          placeholder="0"
+                          className="bg-accent border-border/50 text-foreground text-center text-sm h-8"
+                        />
+                        <Input
+                          type="number"
+                          value={set.reps}
+                          onChange={e => {
+                            const newSets = [...exerciseSets];
+                            newSets[idx] = { ...newSets[idx], reps: e.target.value };
+                            setExerciseSets(newSets);
+                          }}
+                          placeholder="0"
+                          className="bg-accent border-border/50 text-foreground text-center text-sm h-8"
+                        />
+                        <div className="flex items-center justify-center gap-0.5">
+                          <button
+                            onClick={() => {
+                              const newSets = [...exerciseSets];
+                              newSets[idx] = { ...newSets[idx], done: !newSets[idx].done };
+                              setExerciseSets(newSets);
+                            }}
+                            className={`transition-all ${
+                              set.done ? 'text-emerald-400' : 'text-muted-foreground/30 hover:text-muted-foreground/60'
+                            }`}
+                          >
+                            {set.done ? <Check size={16} /> : <Circle size={16} />}
+                          </button>
+                        </div>
+                      </motion.div>
+                    ))}
+                  </div>
+                  {/* Add Set + Remove last set buttons */}
+                  <div className="flex items-center gap-2 mt-2">
+                    <button
+                      onClick={() => setExerciseSets(prev => [...prev, { weight: '', reps: '', done: false }])}
+                      className="flex items-center gap-1 text-xs text-blue-400 hover:text-blue-300 transition-colors px-2 py-1.5 rounded-lg hover:bg-blue-500/10"
+                    >
+                      <Plus size={14} /> Add Set
+                    </button>
+                    {exerciseSets.length > 1 && (
+                      <button
+                        onClick={() => setExerciseSets(prev => prev.slice(0, -1))}
+                        className="flex items-center gap-1 text-xs text-red-400/60 hover:text-red-400 transition-colors px-2 py-1.5 rounded-lg hover:bg-red-500/10"
+                      >
+                        <X size={14} /> Remove Last
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Duration */}
+              <div className="mb-4">
+                <Label className="text-muted-foreground text-xs mb-1.5 block flex items-center gap-1">
+                  <Clock size={12} /> Duration (min)
+                </Label>
+                <Input
+                  type="number"
+                  value={workoutDuration}
+                  onChange={e => setWorkoutDuration(e.target.value)}
+                  placeholder="e.g. 45"
+                  className="bg-accent/50 border-border/50 text-foreground"
+                />
               </div>
 
-              {/* AI burn estimate (all types) */}
-              <Button onClick={estimateBurn} disabled={aiBurnEstimating} variant="ghost" className="text-purple-400 border border-purple-500/20 w-full mb-2">
+              {/* Estimated calories display */}
+              {estimatedBurn && (
+                <div className="flex items-center gap-2 mb-3 px-3 py-2 rounded-lg bg-amber-500/10 border border-amber-500/20">
+                  <Flame size={14} className="text-amber-400" />
+                  <span className="text-sm text-amber-300 font-medium">~{estimatedBurn.estimatedCalories?.toFixed(0)} cal</span>
+                  <span className="text-xs text-amber-400/50">estimated burn</span>
+                </div>
+              )}
+
+              {/* Workout notes */}
+              <div className="mb-4">
+                <button
+                  onClick={() => {
+                    const notes = prompt('Workout notes:', workoutNotes);
+                    if (notes !== null) setWorkoutNotes(notes);
+                  }}
+                  className="w-full flex items-center gap-2 px-3 py-2 rounded-lg bg-accent/30 border border-dashed border-border/50 hover:border-blue-500/30 transition-all text-left"
+                >
+                  <StickyNote size={14} className="text-muted-foreground/50" />
+                  {workoutNotes ? (
+                    <span className="text-xs text-foreground/70 truncate">{workoutNotes}</span>
+                  ) : (
+                    <span className="text-xs text-muted-foreground/50 italic">Tap to add notes...</span>
+                  )}
+                </button>
+              </div>
+
+              {/* AI Estimate button */}
+              <Button onClick={estimateBurn} disabled={aiBurnEstimating || !workoutDuration} variant="ghost" className="text-purple-400 border border-purple-500/20 w-full mb-4">
                 {aiBurnEstimating ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <Sparkles className="w-4 h-4 mr-1" />}
                 AI Estimate Calories Burned
               </Button>
-              {estimatedBurn && (
-                <p className="text-sm text-amber-300 mb-2">~{estimatedBurn.estimatedCalories?.toFixed(0)} cal burned</p>
-              )}
 
-              <Button onClick={addWorkout} className="gradient-blue w-full">Log Workout</Button>
+              {/* Finish Workout button */}
+              <button
+                onClick={addWorkout}
+                disabled={!workoutDuration}
+                className="w-full py-3.5 rounded-xl font-bold text-base text-white bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 transition-all shadow-lg shadow-blue-600/25 disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              >
+                <Star size={18} className="fill-current" />
+                FINISH WORKOUT
+                <Star size={18} className="fill-current" />
+              </button>
+
+              {/* Rest Timer */}
+              <div className="mt-4 p-3 rounded-xl bg-accent/30 border border-border/30">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs text-muted-foreground flex items-center gap-1.5">
+                    <Timer size={13} className="text-blue-400" /> Rest Timer
+                  </span>
+                  <span className={`text-lg font-mono font-bold ${
+                    restTimerSeconds === 0 ? 'text-emerald-400' : restTimerRunning ? 'text-amber-400' : 'text-muted-foreground'
+                  }`}>
+                    {Math.floor(restTimerSeconds / 60)}:{String(restTimerSeconds % 60).padStart(2, '0')}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setRestTimerRunning(!restTimerRunning)}
+                    className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                      restTimerRunning
+                        ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+                        : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                    }`}
+                  >
+                    {restTimerRunning ? <Pause size={12} /> : <Play size={12} />}
+                    {restTimerRunning ? 'Pause' : 'Start'}
+                  </button>
+                  <button
+                    onClick={() => { setRestTimerSeconds(90); setRestTimerRunning(false); }}
+                    className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium bg-accent border border-border text-muted-foreground hover:text-foreground transition-all"
+                  >
+                    <RotateCcw size={12} /> Reset
+                  </button>
+                  <div className="flex gap-1 ml-auto">
+                    {[60, 90, 120, 180].map(sec => (
+                      <button
+                        key={sec}
+                        onClick={() => { setRestTimerSeconds(sec); setRestTimerRunning(false); }}
+                        className={`px-2 py-1 rounded text-[10px] transition-all ${
+                          restTimerSeconds === sec && !restTimerRunning
+                            ? 'bg-blue-600/20 text-blue-300 border border-blue-500/30'
+                            : 'bg-accent/50 text-muted-foreground/50 hover:text-muted-foreground'
+                        }`}
+                      >
+                        {sec}s
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
             </GlassCard>
           )}
 
@@ -1644,6 +1879,150 @@ export default function FitnessClient() {
               </GlassCard>
             );
           })()}
+
+          {/* Tomorrow's Planned Workout Section */}
+          <GlassCard className="overflow-hidden">
+            <div
+              className="p-3 flex items-center justify-between cursor-pointer"
+              style={{ minHeight: 52 }}
+              onClick={() => setTomorrowPlanExpanded(!tomorrowPlanExpanded)}
+            >
+              <div className="flex items-center gap-2">
+                <CalendarCheck size={14} className="text-emerald-400" />
+                <span className="text-sm font-medium text-foreground">Tomorrow&apos;s Workout</span>
+                {tomorrowWorkoutPlans.length > 0 && (
+                  <span className="text-[10px] bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded-full font-medium">
+                    {tomorrowWorkoutPlans.length} planned
+                  </span>
+                )}
+              </div>
+              <motion.div animate={{ rotate: tomorrowPlanExpanded ? 180 : 0 }} transition={{ duration: 0.2 }}>
+                <ChevronDown size={16} className="text-muted-foreground/50" />
+              </motion.div>
+            </div>
+            <AnimatePresence>
+              {tomorrowPlanExpanded && (
+                <motion.div
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: 'auto', opacity: 1 }}
+                  exit={{ height: 0, opacity: 0 }}
+                  transition={{ duration: 0.2 }}
+                  className="overflow-hidden"
+                >
+                  <div className="px-3 pb-3 border-t border-border/30 pt-3 space-y-3">
+                    <p className="text-xs text-muted-foreground/50 italic text-center">Plan your workout for tomorrow</p>
+
+                    {/* Simplified workout type selector */}
+                    {!tomorrowPlanType ? (
+                      <div className="grid grid-cols-3 sm:grid-cols-4 gap-1.5">
+                        {WEIGHT_TYPES.map(type => (
+                          <button
+                            key={type}
+                            onClick={() => setTomorrowPlanType(type)}
+                            className="p-2 rounded-lg bg-accent/50 border border-border/50 hover:border-emerald-500/30 hover:bg-emerald-600/5 transition-all text-left"
+                          >
+                            <p className="text-[11px] font-medium text-foreground truncate">{type}</p>
+                          </button>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        {/* Muscle group for Weight Training */}
+                        {tomorrowPlanType === 'Weight Training' && (
+                          <div>
+                            <Label className="text-muted-foreground text-[10px] mb-1 block">Muscle Group</Label>
+                            <div className="flex flex-wrap gap-1">
+                              {MUSCLE_GROUPS.map(mg => (
+                                <button
+                                  key={mg}
+                                  onClick={() => setTomorrowPlanMuscle(mg)}
+                                  className={`text-[10px] px-2 py-1 rounded-full border transition-all ${
+                                    tomorrowPlanMuscle === mg
+                                      ? 'bg-emerald-600/20 border-emerald-500/40 text-emerald-300'
+                                      : 'bg-accent/50 border-border/50 text-muted-foreground hover:border-emerald-500/20'
+                                  }`}
+                                >
+                                  {MUSCLE_GROUP_META[mg].icon} {MUSCLE_GROUP_META[mg].label}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Estimated duration hint */}
+                        <div className="flex items-center gap-2 px-2 py-1.5 rounded-lg bg-accent/30 border border-border/30">
+                          <Clock size={12} className="text-emerald-400/60" />
+                          <span className="text-[10px] text-muted-foreground">
+                            Est. {tomorrowPlanType === 'Weight Training' ? '45-60' : tomorrowPlanType === 'HIIT' ? '20-30' : tomorrowPlanType === 'Running' || tomorrowPlanType === 'Cycling' ? '30-45' : '30-45'} min
+                          </span>
+                        </div>
+
+                        <div className="flex gap-2">
+                          <Button
+                            onClick={() => {
+                              setTomorrowWorkoutPlans(prev => [...prev, {
+                                type: tomorrowPlanType,
+                                muscleGroup: tomorrowPlanType === 'Weight Training' ? tomorrowPlanMuscle : undefined,
+                                estDuration: tomorrowPlanType === 'Weight Training' ? '45-60' : tomorrowPlanType === 'HIIT' ? '20-30' : '30-45',
+                                plannedAt: new Date().toISOString(),
+                              }]);
+                              setTomorrowPlanType('');
+                              setTomorrowPlanMuscle('chest');
+                              toast.success('Workout planned for tomorrow!');
+                            }}
+                            className="gradient-blue flex-1 text-xs h-8"
+                            size="sm"
+                          >
+                            <Plus size={12} className="mr-1" /> Add Plan
+                          </Button>
+                          <Button
+                            onClick={() => { setTomorrowPlanType(''); setTomorrowPlanMuscle('chest'); }}
+                            variant="ghost"
+                            size="sm"
+                            className="text-muted-foreground text-xs h-8"
+                          >
+                            Cancel
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Show planned workouts */}
+                    {tomorrowWorkoutPlans.length > 0 && (
+                      <div className="space-y-1.5">
+                        <div className="h-px bg-border/30" />
+                        {tomorrowWorkoutPlans.map((plan: any, idx: number) => (
+                          <div key={idx} className="flex items-center justify-between py-1.5 px-2.5 rounded-lg bg-emerald-500/5 border border-emerald-500/10">
+                            <div className="flex items-center gap-2">
+                              <span className="text-[10px] bg-emerald-500/20 text-emerald-300 px-1.5 py-0.5 rounded font-medium">Planned</span>
+                              <span className="text-xs text-foreground font-medium">{plan.type}</span>
+                              {plan.muscleGroup && (
+                                <span className="text-[10px] text-muted-foreground">
+                                  {MUSCLE_GROUP_META[plan.muscleGroup]?.icon} {MUSCLE_GROUP_META[plan.muscleGroup]?.label}
+                                </span>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <span className="text-[10px] text-muted-foreground/50">{plan.estDuration} min</span>
+                              <button
+                                onClick={() => setTomorrowWorkoutPlans(prev => prev.filter((_: any, i: number) => i !== idx))}
+                                className="text-muted-foreground/30 hover:text-red-400 transition-colors"
+                              >
+                                <X size={12} />
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                        <p className="text-[10px] text-muted-foreground/30 text-center italic">
+                          Planned workouts will appear here tomorrow
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </GlassCard>
 
           {/* Past 7 days workout history */}
           <div className="space-y-2">
