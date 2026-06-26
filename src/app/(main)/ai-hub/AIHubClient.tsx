@@ -12,6 +12,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { GlassCard } from '@/components/glass-card';
 import { AIMessage } from '@/components/ai-message';
 import { ChatSidebar } from '@/components/chat-sidebar';
+import { ProposalList, ProposalData } from '@/components/proposal-card';
 import { toast } from 'sonner';
 import { t } from '@/lib/i18n';
 import { cn } from '@/lib/utils';
@@ -21,6 +22,7 @@ interface ChatMessage {
   role: 'user' | 'assistant';
   content: string;
   createdAt: string;
+  proposals?: ProposalData[];
 }
 
 interface AgentCard {
@@ -192,6 +194,7 @@ export default function AIHubClient() {
           role: 'assistant',
           content: data.response || data.reply || "I'm here to help!",
           createdAt: new Date().toISOString(),
+          proposals: Array.isArray(data.proposals) ? data.proposals : undefined,
         };
         setMessages(prev => [...prev, assistantMessage]);
       } else {
@@ -343,6 +346,49 @@ export default function AIHubClient() {
                     );
                   })}
                 </div>
+
+                {/* Automation hint */}
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.4 }}
+                  className="mt-6 rounded-xl border border-blue-500/20 bg-blue-500/5 p-4"
+                >
+                  <div className="flex items-start gap-2.5">
+                    <Sparkles size={16} className="text-blue-400 shrink-0 mt-0.5" />
+                    <div className="flex-1">
+                      <p className="text-xs font-semibold text-foreground mb-1.5">
+                        Module Task Management & Automation
+                      </p>
+                      <p className="text-xs text-muted-foreground/80 leading-relaxed mb-2">
+                        Each AI can manage tasks in its module — optimize schedules, reorganize plans,
+                        clean up duplicates, suggest improvements. You approve every change before it's applied.
+                      </p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {[
+                          'Optimize my study plan',
+                          'Reorganize this week\'s workouts',
+                          'Clean up completed tasks',
+                          'Generate a better task list',
+                        ].map((prompt) => (
+                          <button
+                            key={prompt}
+                            onClick={() => {
+                              handleStartChatWithAgent(currentAgentType);
+                              setTimeout(() => {
+                                setInput(prompt);
+                                inputRef.current?.focus();
+                              }, 50);
+                            }}
+                            className="text-[11px] px-2 py-1 rounded-md border border-border bg-background/40 text-muted-foreground hover:text-foreground hover:border-blue-400/30 transition-colors"
+                          >
+                            {prompt}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </motion.div>
               </div>
             </ScrollArea>
           ) : (
@@ -355,31 +401,44 @@ export default function AIHubClient() {
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.15 }}
                     className={cn(
-                      'flex w-full gap-2',
-                      msg.role === 'user' ? 'justify-end' : 'justify-start'
+                      'flex w-full gap-2 flex-col',
+                      msg.role === 'user' ? 'items-end' : 'items-start'
                     )}
                   >
-                    {msg.role === 'assistant' && (
-                      <div className={cn('w-7 h-7 rounded-full bg-gradient-to-br flex items-center justify-center shrink-0 mt-1', activeAgent.gradient)}>
-                        <ActiveIcon size={13} className="text-white" />
+                    <div className={cn('flex w-full gap-2', msg.role === 'user' ? 'justify-end' : 'justify-start')}>
+                      {msg.role === 'assistant' && (
+                        <div className={cn('w-7 h-7 rounded-full bg-gradient-to-br flex items-center justify-center shrink-0 mt-1', activeAgent.gradient)}>
+                          <ActiveIcon size={13} className="text-white" />
+                        </div>
+                      )}
+                      <div
+                        className={cn(
+                          'max-w-[85%] sm:max-w-[80%] rounded-2xl px-4 py-2.5 overflow-hidden',
+                          msg.role === 'user'
+                            ? 'gradient-blue text-white rounded-br-md'
+                            : 'bg-accent/50 text-foreground rounded-bl-md border border-border'
+                        )}
+                      >
+                        {msg.role === 'assistant' ? (
+                          <div className="min-w-0 w-full overflow-hidden">
+                            <AIMessage content={msg.content} />
+                          </div>
+                        ) : (
+                          <p className="text-sm leading-relaxed break-words">{msg.content}</p>
+                        )}
+                      </div>
+                    </div>
+                    {msg.role === 'assistant' && msg.proposals && msg.proposals.length > 0 && (
+                      <div className="w-full max-w-[95%] sm:max-w-[90%] pl-9">
+                        <ProposalList
+                          proposals={msg.proposals}
+                          onAnyChange={() => {
+                            // Could trigger a refetch of module data here;
+                            // for now, just visually update via the card's own state.
+                          }}
+                        />
                       </div>
                     )}
-                    <div
-                      className={cn(
-                        'max-w-[85%] sm:max-w-[80%] rounded-2xl px-4 py-2.5 overflow-hidden',
-                        msg.role === 'user'
-                          ? 'gradient-blue text-white rounded-br-md'
-                          : 'bg-accent/50 text-foreground rounded-bl-md border border-border'
-                      )}
-                    >
-                      {msg.role === 'assistant' ? (
-                        <div className="min-w-0 w-full overflow-hidden">
-                          <AIMessage content={msg.content} />
-                        </div>
-                      ) : (
-                        <p className="text-sm leading-relaxed break-words">{msg.content}</p>
-                      )}
-                    </div>
                   </motion.div>
                 ))}
 

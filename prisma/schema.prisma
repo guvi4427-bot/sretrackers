@@ -56,6 +56,7 @@ model User {
   chatHistories      ChatHistory[]
   conversations      Conversation[]
   moduleMemories     ModuleMemory[]
+  aiActionProposals  AiActionProposal[]
 
   following   Follow[]  @relation("Following")
   followers   Follow[]  @relation("Followers")
@@ -720,6 +721,43 @@ model ModuleMemory {
 
   @@unique([userId, module])
   @@index([userId, module])
+}
+
+// ─── AI Action Proposals (Module-Based Task Management & Automation) ───
+// When a user asks the AI to "optimize my study plan" / "reorganize workouts"
+// / "clean up tasks", the AI generates structured proposals. Each proposal
+// describes a single concrete action (create/edit/delete/reorder/merge/archive)
+// with before/after state, reason, confidence, and expected benefit.
+//
+// IMPORTANT: AI never modifies user data directly. It only creates proposals
+// in "pending" status. The user must explicitly approve each proposal via
+// the chat UI; only then does the executor apply it to the actual module.
+
+model AiActionProposal {
+  id              String   @id @default(cuid())
+  userId          String
+  module          String   // productivity, fitness, learning, content
+  conversationId  String?  // links back to the chat where it was proposed
+  actionType      String   // create, edit, delete, reorder, merge, archive
+  entityType      String   // task, workout, learning_topic, learning_entry, content_entry, content_series
+  entityId        String?  // target entity ID (for edit/delete/reorder/merge)
+  title           String   // human-readable summary, e.g. "Move 'Read book' to 7:00 AM"
+  reason          String   // why this change is being proposed
+  beforeStateJson String?  // JSON snapshot of current state (null for create)
+  afterStateJson  String   // JSON of proposed state
+  expectedBenefit String?  // what the user gains
+  confidence      Float    @default(0.8) // 0.0-1.0
+  status          String   @default("pending") // pending, approved, rejected, applied, failed, expired
+  appliedAt       DateTime?
+  errorMessage    String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, status])
+  @@index([userId, module])
+  @@index([userId, conversationId])
 }
 
 // ─── Audit Log ───

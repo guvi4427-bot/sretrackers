@@ -5,6 +5,7 @@ import { aiChat, generateTitle, getNavigatorResponse } from '@/lib/ai-provider';
 import { db } from '@/lib/db';
 import { buildModuleContext, getModuleMemory, formatMemoryBlock, updateModuleMemory } from '@/lib/ai-module-context';
 import { extractMemoryInsights, extractFromPatterns } from '@/lib/ai-memory-extractor';
+import { detectAutomationIntent, generateActionProposals, ActionProposal } from '@/lib/ai-action-proposals';
 
 export async function POST(req: Request) {
   try {
@@ -167,7 +168,21 @@ You can help with:
 - Detect trends over time (e.g. "your weight is up 1.2kg in 30 days", "you've hit the gym 4x this week").
 - Remember their preferences and goals across conversations.
 - Never ask them to repeat information that's already in your context or memory.
-- If they mention a specific food brand or variant (e.g. "Arokya Full Cream Milk"), use that exact item's nutritional profile instead of generic values.`;
+- If they mention a specific food brand or variant (e.g. "Arokya Full Cream Milk"), use that exact item's nutritional profile instead of generic values.
+
+── MODULE TASK MANAGEMENT & AUTOMATION ──
+You are a module manager, not just a chat assistant. The user can ask you to:
+- "Optimize my study plan" / "Reorganize this week's workouts" / "Clean up completed tasks"
+- "Generate a better task list" / "Suggest improvements" / "Update my learning roadmap"
+- "Merge duplicate tasks" / "Find outdated entries"
+
+When the user asks for ANY of these automation actions:
+1. Explain your analysis briefly in your reply (what you saw, what's wrong, what to fix).
+2. List the concrete changes you propose (this is what the user will see as approval cards).
+3. Tell the user to review the proposals below your reply and approve/reject each one.
+4. NEVER claim you have already made changes. You have NOT — changes only apply after the user approves.
+
+When the user just asks a question (not requesting automation), answer normally without proposing actions.`;
 
     // ── Load or create conversation (fully isolated try/catch) ──
     // This MUST NOT break AI responses even if DB tables are missing
@@ -379,7 +394,29 @@ You can help with:
       console.log('[AI Chatbot] Memory update failed (non-blocking):', memError instanceof Error ? memError.message : 'unknown');
     }
 
-    return NextResponse.json({ reply, response: reply, conversationId: savedConversationId });
+    // ── Module Automation: Generate action proposals if user requested it ──
+    // The AI never modifies user data directly. When the user asks for
+    // automation ("optimize my study plan", "reorganize workouts", etc.),
+    // we generate structured proposals that the user must approve via the
+    // chat UI. Only approved proposals are applied via /api/ai/proposals/[id].
+    //
+    // This runs AFTER the AI reply so the user gets their text response
+    // immediately; proposal generation is best-effort and non-blocking.
+    let proposals: ActionProposal[] = [];
+    try {
+      if (detectAutomationIntent(message, agentType)) {
+        proposals = await generateActionProposals(userId, agentType, message, savedConversationId || undefined);
+      }
+    } catch (propError) {
+      console.log('[AI Chatbot] Proposal generation failed (non-blocking):', propError instanceof Error ? propError.message : 'unknown');
+    }
+
+    return NextResponse.json({
+      reply,
+      response: reply,
+      conversationId: savedConversationId,
+      proposals: proposals.length > 0 ? proposals : undefined,
+    });
   } catch (error) {
     console.error('AI chatbot error:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
