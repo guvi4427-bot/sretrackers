@@ -59,27 +59,68 @@ export const PROTEIN_FOODS: ProteinFood[] = [
   },
 
   // ── DAIRY ──
+  // Milk variants (per 250ml glass, FSSAI standards):
+  //   Full Cream = 6% fat → ~167 cal, 8.5g P, 12.3g C, 15g fat
+  //   Standardized = 4.5% fat → ~150 cal, 8.5g P, 12.3g C, 11.25g fat
+  //   Toned = 3% fat → ~125 cal, 8.5g P, 12.3g C, 7.5g fat
+  //   Double Toned = 1.5% fat → ~100 cal, 8g P, 12.3g C, 3.75g fat
+  //   Skim = 0.1% fat → ~85 cal, 8.5g P, 12.5g C, 0.25g fat
   {
     name: 'Milk (Full Cream)',
     serving: '1 glass (250ml)',
-    proteinG: 8,
+    proteinG: 9,
+    calories: 167,
+    dietTypes: ['non_veg', 'eggetarian', 'vegetarian'],
+    meals: ['breakfast', 'snack'],
+    affordability: 1,
+    frequency: 'Daily',
+    riskNote: 'Higher calories and fat — track portions during fat loss. Consider toned/skim milk if cutting.',
+    category: 'dairy',
+  },
+  {
+    name: 'Milk (Standardized)',
+    serving: '1 glass (250ml)',
+    proteinG: 9,
     calories: 150,
     dietTypes: ['non_veg', 'eggetarian', 'vegetarian'],
     meals: ['breakfast', 'snack'],
     affordability: 1,
     frequency: 'Daily',
-    riskNote: 'Watch calories if on fat loss — consider toned/skim milk.',
     category: 'dairy',
   },
   {
-    name: 'Milk (Toned/Skim)',
+    name: 'Milk (Toned)',
     serving: '1 glass (250ml)',
-    proteinG: 8,
-    calories: 90,
+    proteinG: 9,
+    calories: 125,
     dietTypes: ['non_veg', 'eggetarian', 'vegetarian'],
     meals: ['breakfast', 'snack'],
     affordability: 1,
     frequency: 'Daily',
+    riskNote: 'Balanced calorie/protein ratio — good default for most users.',
+    category: 'dairy',
+  },
+  {
+    name: 'Milk (Double Toned)',
+    serving: '1 glass (250ml)',
+    proteinG: 8,
+    calories: 100,
+    dietTypes: ['non_veg', 'eggetarian', 'vegetarian'],
+    meals: ['breakfast', 'snack'],
+    affordability: 1,
+    frequency: 'Daily',
+    category: 'dairy',
+  },
+  {
+    name: 'Milk (Skim)',
+    serving: '1 glass (250ml)',
+    proteinG: 9,
+    calories: 85,
+    dietTypes: ['non_veg', 'eggetarian', 'vegetarian'],
+    meals: ['breakfast', 'snack'],
+    affordability: 1,
+    frequency: 'Daily',
+    riskNote: 'Lowest calorie milk — best for aggressive fat loss phases.',
     category: 'dairy',
   },
   {

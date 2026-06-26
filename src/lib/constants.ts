@@ -122,8 +122,38 @@ export const FOOD_DATABASE = [
   { name: "Paneer", calories: 265, protein: 18.3, carbs: 1.2, fat: 20.8, fiber: 0 },            // raw
   { name: "Paneer Butter Masala", calories: 225, protein: 8.5, carbs: 6.5, fat: 18.5, fiber: 1.0 }, // (PDF verified)
   { name: "Paneer Tikka", calories: 200, protein: 16, carbs: 5, fat: 13, fiber: 1.0 },
-  { name: "Milk", calories: 42, protein: 3.4, carbs: 5, fat: 1, fiber: 0 },                     // whole, per 100ml
-  { name: "Skimmed Milk", calories: 34, protein: 3.4, carbs: 5, fat: 0.1, fiber: 0 },           // per 100ml
+  // ── Milk Variants (per 100ml, FSSAI standards) ──
+  // Full Cream = 6% fat, 9% SNF | Standardized = 4.5% fat, 8.5% SNF
+  // Toned = 3% fat, 8.5% SNF | Double Toned = 1.5% fat, 9% SNF | Skim = 0.1% fat, 8.7% SNF
+  { name: "Milk (Full Cream)", calories: 67, protein: 3.4, carbs: 4.9, fat: 6.0, fiber: 0 },     // whole milk, 6% fat
+  { name: "Full Cream Milk", calories: 67, protein: 3.4, carbs: 4.9, fat: 6.0, fiber: 0 },       // alias
+  { name: "Whole Milk", calories: 67, protein: 3.4, carbs: 4.9, fat: 6.0, fiber: 0 },            // alias
+  { name: "Milk (Standardized)", calories: 60, protein: 3.4, carbs: 4.9, fat: 4.5, fiber: 0 },   // 4.5% fat
+  { name: "Standardized Milk", calories: 60, protein: 3.4, carbs: 4.9, fat: 4.5, fiber: 0 },     // alias
+  { name: "Milk (Toned)", calories: 50, protein: 3.4, carbs: 4.9, fat: 3.0, fiber: 0 },          // 3% fat
+  { name: "Toned Milk", calories: 50, protein: 3.4, carbs: 4.9, fat: 3.0, fiber: 0 },            // alias
+  { name: "Milk (Double Toned)", calories: 40, protein: 3.2, carbs: 4.9, fat: 1.5, fiber: 0 },   // 1.5% fat
+  { name: "Double Toned Milk", calories: 40, protein: 3.2, carbs: 4.9, fat: 1.5, fiber: 0 },     // alias
+  { name: "Milk (Skim)", calories: 34, protein: 3.4, carbs: 5.0, fat: 0.1, fiber: 0 },           // 0.1% fat
+  { name: "Skimmed Milk", calories: 34, protein: 3.4, carbs: 5.0, fat: 0.1, fiber: 0 },          // alias
+  { name: "Skim Milk", calories: 34, protein: 3.4, carbs: 5.0, fat: 0.1, fiber: 0 },             // alias
+  { name: "Milk", calories: 67, protein: 3.4, carbs: 4.9, fat: 6.0, fiber: 0 },                  // default = Full Cream (per 100ml)
+  // ── Indian Brand Milks (per 100ml, label-verified) ──
+  { name: "Amul Gold Full Cream Milk", calories: 67, protein: 3.4, carbs: 4.9, fat: 6.0, fiber: 0 },
+  { name: "Amul Taaza Toned Milk", calories: 50, protein: 3.4, carbs: 4.9, fat: 3.0, fiber: 0 },
+  { name: "Amul Slim n Trim Double Toned Milk", calories: 40, protein: 3.2, carbs: 4.9, fat: 1.5, fiber: 0 },
+  { name: "Amul Skimmed Milk", calories: 34, protein: 3.4, carbs: 5.0, fat: 0.1, fiber: 0 },
+  { name: "Mother Dairy Full Cream Milk", calories: 67, protein: 3.4, carbs: 4.9, fat: 6.0, fiber: 0 },
+  { name: "Mother Dairy Toned Milk", calories: 50, protein: 3.4, carbs: 4.9, fat: 3.0, fiber: 0 },
+  { name: "Mother Dairy Double Toned Milk", calories: 40, protein: 3.2, carbs: 4.9, fat: 1.5, fiber: 0 },
+  { name: "Arokya Full Cream Milk", calories: 67, protein: 3.4, carbs: 4.9, fat: 6.0, fiber: 0 },
+  { name: "Arokya Toned Milk", calories: 50, protein: 3.4, carbs: 4.9, fat: 3.0, fiber: 0 },
+  { name: "Heritage Full Cream Milk", calories: 67, protein: 3.4, carbs: 4.9, fat: 6.0, fiber: 0 },
+  { name: "Heritage Toned Milk", calories: 50, protein: 3.4, carbs: 4.9, fat: 3.0, fiber: 0 },
+  { name: "Nandini Full Cream Milk", calories: 67, protein: 3.4, carbs: 4.9, fat: 6.0, fiber: 0 },
+  { name: "Nandini Toned Milk", calories: 50, protein: 3.4, carbs: 4.9, fat: 3.0, fiber: 0 },
+  { name: "Britannia Full Cream Milk", calories: 67, protein: 3.4, carbs: 4.9, fat: 6.0, fiber: 0 },
+  { name: "Britannia Toned Milk", calories: 50, protein: 3.4, carbs: 4.9, fat: 3.0, fiber: 0 },
   { name: "Yogurt", calories: 59, protein: 3.5, carbs: 3.6, fat: 3.3, fiber: 0 },               // plain, whole
   { name: "Greek Yogurt", calories: 59, protein: 10, carbs: 3.6, fat: 0.7, fiber: 0 },
   { name: "Curd", calories: 60, protein: 3.5, carbs: 4, fat: 3.0, fiber: 0 },                   // Indian dahi
@@ -516,7 +546,38 @@ export const UNIT_TO_GRAMS: Record<string, number> = {
 
   // Dairy
   "milk:cup": 244,
+  "milk:glass": 250,
+  "milk (full cream):cup": 244,
+  "milk (full cream):glass": 250,
+  "full cream milk:cup": 244,
+  "full cream milk:glass": 250,
+  "whole milk:cup": 244,
+  "whole milk:glass": 250,
+  "milk (standardized):cup": 244,
+  "milk (standardized):glass": 250,
+  "standardized milk:cup": 244,
+  "standardized milk:glass": 250,
+  "milk (toned):cup": 244,
+  "milk (toned):glass": 250,
+  "toned milk:cup": 244,
+  "toned milk:glass": 250,
+  "milk (double toned):cup": 244,
+  "milk (double toned):glass": 250,
+  "double toned milk:cup": 244,
+  "double toned milk:glass": 250,
+  "milk (skim):cup": 244,
+  "milk (skim):glass": 250,
   "skimmed milk:cup": 245,
+  "skimmed milk:glass": 250,
+  "skim milk:cup": 244,
+  "skim milk:glass": 250,
+  "amul gold:glass": 250,
+  "amul taaza:glass": 250,
+  "arokya:glass": 250,
+  "mother dairy:glass": 250,
+  "nandini:glass": 250,
+  "heritage:glass": 250,
+  "britannia:glass": 250,
   "yogurt:cup": 245,
   "greek yogurt:cup": 245,
   "curd:cup": 245,

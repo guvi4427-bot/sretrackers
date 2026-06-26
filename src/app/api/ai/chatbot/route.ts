@@ -3,6 +3,8 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { aiChat, generateTitle, getNavigatorResponse } from '@/lib/ai-provider';
 import { db } from '@/lib/db';
+import { buildModuleContext, getModuleMemory, formatMemoryBlock, updateModuleMemory } from '@/lib/ai-module-context';
+import { extractMemoryInsights, extractFromPatterns } from '@/lib/ai-memory-extractor';
 
 export async function POST(req: Request) {
   try {
@@ -129,6 +131,44 @@ You can help with:
 
     const selectedPrompt = systemPrompts[agentType] || systemPrompts.general;
 
+    // ── Build module-specific context (user's data, history, trends) ──
+    // This is what makes each AI "module-aware" — it knows the user's
+    // recent workouts, weight, food logs, learning topics, tasks, etc.
+    // without the user having to repeat themselves.
+    //
+    // Both fetches are best-effort: if they fail, the AI still works,
+    // just without the personalized context.
+    let moduleContextBlock = '';
+    let memoryBlock = '';
+    try {
+      const [moduleContext, memory] = await Promise.all([
+        buildModuleContext(userId, agentType),
+        getModuleMemory(userId, agentType === 'navigation' ? 'general' : agentType),
+      ]);
+
+      if (moduleContext && moduleContext.contextBlock && moduleContext.contextBlock !== '(no activity yet)') {
+        moduleContextBlock = `\n\n── USER CONTEXT (this user's actual data — use it for personalized advice) ──\n${moduleContext.contextBlock}`;
+      }
+
+      const memBlock = formatMemoryBlock(memory);
+      if (memBlock) {
+        memoryBlock = `\n\n── PERSISTENT MEMORY (what you remember about this user from past conversations) ──\n${memBlock}`;
+      }
+    } catch (ctxError) {
+      console.log('[AI Chatbot] Context/memory fetch failed (non-blocking):', ctxError instanceof Error ? ctxError.message : 'unknown');
+    }
+
+    // Compose the final system prompt: base prompt + module context + memory
+    const finalSystemPrompt = `${selectedPrompt}${moduleContextBlock}${memoryBlock}
+
+── COACHING INSTRUCTIONS ──
+- You are a long-term coach for this user. Use the context above to give personalized advice.
+- Reference their actual data (recent workouts, weight trends, food logs, study progress, task completion).
+- Detect trends over time (e.g. "your weight is up 1.2kg in 30 days", "you've hit the gym 4x this week").
+- Remember their preferences and goals across conversations.
+- Never ask them to repeat information that's already in your context or memory.
+- If they mention a specific food brand or variant (e.g. "Arokya Full Cream Milk"), use that exact item's nutritional profile instead of generic values.`;
+
     // ── Load or create conversation (fully isolated try/catch) ──
     // This MUST NOT break AI responses even if DB tables are missing
     let conversation: any = null;
@@ -206,10 +246,10 @@ You can help with:
         reply = localReply;
       } else {
         // No local match — fall through to AI API with navigation prompt
-        reply = await aiChat(messages, selectedPrompt);
+        reply = await aiChat(messages, finalSystemPrompt);
       }
     } else {
-      reply = await aiChat(messages, selectedPrompt);
+      reply = await aiChat(messages, finalSystemPrompt);
     }
 
     // ── Save conversation (fully isolated try/catch) ──
@@ -297,6 +337,46 @@ You can help with:
         // Even legacy save failed — AI response is still returned to user
         console.error('[AI Chatbot] Legacy chat history save also failed:', legacyError instanceof Error ? legacyError.message : 'unknown');
       }
+    }
+
+    // ── Auto-update persistent memory (best-effort, non-blocking) ──
+    // Pattern-based extraction is instant; AI enrichment runs in the
+    // background and won't delay the response.
+    try {
+      const memoryModule = agentType === 'navigation' ? 'general' : agentType;
+
+      // Synchronous pattern extraction (instant)
+      const patternResult = extractFromPatterns(message, memoryModule);
+      const patternCount =
+        patternResult.preferences.length +
+        patternResult.frequentItems.length +
+        patternResult.goals.length +
+        patternResult.notes.length;
+
+      if (patternCount > 0) {
+        // Save pattern-extracted items immediately
+        await updateModuleMemory(userId, memoryModule, patternResult).catch(() => {});
+      }
+
+      // Fire AI-assisted enrichment in the background (don't await)
+      // Only for substantive user messages (>120 chars)
+      if (message.length > 120) {
+        extractMemoryInsights(message, reply, memoryModule)
+          .then(enriched => {
+            if (!enriched) return;
+            const enrichedCount =
+              enriched.preferences.length +
+              enriched.frequentItems.length +
+              enriched.goals.length +
+              enriched.notes.length;
+            if (enrichedCount > patternCount) {
+              updateModuleMemory(userId, memoryModule, enriched).catch(() => {});
+            }
+          })
+          .catch(() => { /* swallow — background task */ });
+      }
+    } catch (memError) {
+      console.log('[AI Chatbot] Memory update failed (non-blocking):', memError instanceof Error ? memError.message : 'unknown');
     }
 
     return NextResponse.json({ reply, response: reply, conversationId: savedConversationId });
