@@ -1,0 +1,30 @@
+# hostless.yaml — Hostless Cloud Deployment Blueprint
+# Docs reference: https://hostless.cloud
+
+build:
+  system: docker
+  dockerfile_path: "./Dockerfile"
+  start_command: "npm start"
+  min_cpu: 1
+  max_cpu: 2
+  min_memory: 1024
+  max_memory: 2048
+
+scaling:
+  min_replicas: 1
+  max_replicas: 3
+  min_cpu: 1
+  max_cpu: 2
+  min_memory: 1024
+  max_memory: 2048
+
+health_check:
+  type: http
+  path: "/api/health"
+  interval_in_seconds: 15
+
+cron_jobs:
+  - name: learning-inactivity-check
+    schedule: "0 9 * * *"
+    command: "curl -s -H \"Authorization: Bearer $CRON_SECRET\" http://localhost:$PORT/api/cron/learning-inactivity"
+

@@ -1,0 +1,15 @@
+node_modules
+.next
+.git
+.gitignore
+*.log
+*.tsbuildinfo
+.env*
+!*.example
+download
+agent-ctx
+examples
+mini-services
+.zscripts
+docs
+

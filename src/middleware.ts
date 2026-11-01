@@ -17,6 +17,14 @@ const PUBLIC_PATHS = [
   "/roadmap", "/mission", "/vision", "/changelog",
 ];
 
+// Authenticated app paths that require a session (or guest mode where allowed)
+const APP_PROTECTED_PREFIXES = [
+  "/home", "/learn", "/fitness", "/content", "/time", "/analytics",
+  "/leaderboard", "/achievements", "/ai-hub", "/bookmarks", "/my-blogs",
+  "/messages", "/notifications", "/friends", "/follow-requests",
+  "/settings", "/onboarding", "/feedback", "/phase",
+];
+
 // Known search/AI crawler user-agent substrings (lowercase match)
 const CRAWLER_USER_AGENTS = [
   'googlebot', 'bingbot', 'yandexbot', 'baiduspider', 'duckduckbot',
@@ -39,7 +47,6 @@ const GUEST_ALLOWED_PATHS = [
   "/discover",
   "/shared-topic",
   "/blog",
-  // Public SEO pages also accessible to guests
   "/features",
   "/showcase",
   "/faq",
@@ -57,17 +64,16 @@ const GUEST_ALLOWED_API_PATHS = [
   "/api/feed/live-updates",
   "/api/discover",
   "/api/user/public",
-  "/api/posts",      // GET only — POST is blocked at the API level
-  "/api/learning/topic",  // GET only — for shared topic viewing
-  "/api/learning/topic/", // GET specific topic by ID
-  "/api/blogs",      // GET only — POST/DELETE blocked at API level
+  "/api/posts",           // GET only
+  "/api/learning/topic",   // GET only
+  "/api/blogs",           // GET only
 ];
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   // Allow public paths
-  if (PUBLIC_PATHS.some((p) => pathname.startsWith(p))) {
+  if (PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`))) {
     return NextResponse.next();
   }
 
@@ -90,17 +96,36 @@ export async function middleware(request: NextRequest) {
   }
 
   try {
-    const secret =
-      process.env.NEXTAUTH_SECRET ||
-      "sre-platform-insecure-secret-please-set-nextauth-secret-env";
-    const token = await getToken({ req: request, secret });
+    const secret = process.env.NEXTAUTH_SECRET;
+    if (!secret && process.env.NODE_ENV === "production") {
+      console.error("FATAL: NEXTAUTH_SECRET is not configured in production environment!");
+    }
 
-    // Check for guest mode (via cookie)
+    const token = await getToken({
+      req: request,
+      secret: secret || "dev-only-secret-key-replace-in-production",
+    });
+
     const isGuest = request.cookies.get("sre_guest")?.value === "true";
 
+    // Admin route protection: Return JSON 403 on API, or redirect to /home on pages
+    if (pathname.startsWith("/admin") || pathname.startsWith("/api/admin")) {
+      if (!token?.isAdmin) {
+        if (pathname.startsWith("/api/")) {
+          return NextResponse.json(
+            { error: "Forbidden — Admin privileges required" },
+            { status: 403 }
+          );
+        }
+        return NextResponse.redirect(new URL("/home", request.url));
+      }
+      return NextResponse.next();
+    }
+
+    // Unauthenticated and not guest
     if (!token && !isGuest) {
-      // Allow known crawlers to access guest-allowed pages for SEO/indexing
-      if (isCrawler(request.headers.get('user-agent'))) {
+      // Allow legitimate search crawlers to index guest-browseable pages
+      if (isCrawler(request.headers.get("user-agent"))) {
         const isCrawlerAllowedPath =
           GUEST_ALLOWED_PATHS.some((p) => pathname.startsWith(p)) ||
           pathname.startsWith("/profile/") ||
@@ -112,51 +137,64 @@ export async function middleware(request: NextRequest) {
           return response;
         }
       }
-      // Not authenticated and not a guest — redirect to intro landing page
-      const landingUrl = new URL("/", request.url);
-      return NextResponse.redirect(landingUrl);
+
+      // API routes return 401 JSON instead of redirecting
+      if (pathname.startsWith("/api/")) {
+        return NextResponse.json(
+          { error: "Unauthorized — Please sign in to access this resource" },
+          { status: 401 }
+        );
+      }
+
+      // If user is accessing a known protected app route, redirect to /landing
+      const isKnownAppRoute =
+        APP_PROTECTED_PREFIXES.some((prefix) => pathname.startsWith(prefix)) ||
+        pathname.startsWith("/admin");
+
+      if (isKnownAppRoute) {
+        return NextResponse.redirect(new URL("/landing", request.url));
+      }
+
+      // For unknown routes, let Next.js process normally so it returns 404 (prevents soft-404 redirects)
+      return NextResponse.next();
     }
 
+    // Guest user handling
     if (!token && isGuest) {
-      // Guest user — allow only specific paths
       const isGuestAllowedPath =
         GUEST_ALLOWED_PATHS.some((p) => pathname.startsWith(p)) ||
-        pathname.startsWith("/profile/");
+        pathname.startsWith("/profile/") ||
+        pathname.startsWith("/shared-topic/");
 
       const isGuestAllowedApi =
         GUEST_ALLOWED_API_PATHS.some((p) => pathname.startsWith(p)) &&
         request.method === "GET";
 
-      // Block guest access to restricted paths
       if (!isGuestAllowedPath && !isGuestAllowedApi) {
-        const landingUrl = new URL("/", request.url);
-        return NextResponse.redirect(landingUrl);
+        if (pathname.startsWith("/api/")) {
+          return NextResponse.json(
+            { error: "Action requires account. Please create a free account to continue." },
+            { status: 401 }
+          );
+        }
+        return NextResponse.redirect(new URL("/landing", request.url));
       }
 
-      // Guest accessing allowed path — inject guest header for API-level checks
       const response = NextResponse.next();
       response.headers.set("x-guest", "true");
       return response;
     }
 
-    // Authenticated user — clear any stale guest cookie if present
+    // Authenticated user — clear any lingering guest cookie
     if (token && isGuest) {
       const response = NextResponse.next();
       response.cookies.set("sre_guest", "", { path: "/", maxAge: 0 });
       return response;
     }
 
-    // Admin route guard — only admins can access /admin and /api/admin
-    if (
-      (pathname.startsWith("/admin") || pathname.startsWith("/api/admin")) &&
-      !token?.isAdmin
-    ) {
-      return NextResponse.redirect(new URL("/home", request.url));
-    }
-
     return NextResponse.next();
   } catch (error) {
-    // Graceful handling — allow through rather than crash
+    console.error("Middleware evaluation error:", error);
     return NextResponse.next();
   }
 }
