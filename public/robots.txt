@@ -1,10 +1,30 @@
 User-agent: Googlebot
 Allow: /
+Crawl-delay: 1
+
+User-agent: Googlebot-Image
+Allow: /
 
 User-agent: Mediapartners-Google
 Allow: /
 
 User-agent: Bingbot
+Allow: /
+Crawl-delay: 2
+
+User-agent: GPTBot
+Allow: /
+
+User-agent: ChatGPT-User
+Allow: /
+
+User-agent: PerplexityBot
+Allow: /
+
+User-agent: anthropic-ai
+Allow: /
+
+User-agent: ClaudeBot
 Allow: /
 
 User-agent: Twitterbot
@@ -13,7 +33,62 @@ Allow: /
 User-agent: facebookexternalhit
 Allow: /
 
+User-agent: Googlebot-News
+Allow: /
+
+User-agent: Googlebot-Video
+Allow: /
+
+User-agent: AdsBot-Google
+Allow: /
+
+User-agent: Bytespider
+Allow: /
+Crawl-delay: 5
+
+User-agent: Applebot
+Allow: /
+
+User-agent: YandexBot
+Allow: /
+Crawl-delay: 5
+
+User-agent: Discordbot
+Allow: /
+
+User-agent: Slackbot
+Allow: /
+
+User-agent: LinkedInBot
+Allow: /
+
+User-agent: SemrushBot
+Allow: /
+
+User-agent: Gemini-Web-Crawler
+Allow: /
+
+User-agent: Google-Extended
+Allow: /
+
+User-agent: CCBot
+Allow: /
+Crawl-delay: 5
+
 User-agent: *
 Allow: /
+Disallow: /api/
+Disallow: /private/
+Disallow: /login
+Disallow: /signup
+Disallow: /admin
+Disallow: /api/admin
+Disallow: /api/auth
+Disallow: /settings
+Disallow: /onboarding
+Disallow: /api/seed
+Disallow: /api/cron
+Disallow: /api/ai
+Crawl-delay: 2
 
 Sitemap: https://sretrack.vercel.app/sitemap.xml

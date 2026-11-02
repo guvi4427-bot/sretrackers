@@ -3,9 +3,9 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   /* Vercel handles server output automatically - do NOT use output: "standalone" */
   typescript: {
-    ignoreBuildErrors: true,
+    ignoreBuildErrors: false,
   },
-  reactStrictMode: false,
+  reactStrictMode: true,
   images: {
     formats: ["image/avif", "image/webp"],
     minimumCacheTTL: 60,

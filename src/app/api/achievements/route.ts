@@ -204,7 +204,7 @@ export async function GET() {
       select: { achievementId: true, unlockedAt: true },
     });
 
-    const unlockedMap = new Map(userAchievements.map((ua) => [ua.achievementId, ua.unlockedAt]));
+    const unlockedMap = new Map<string, any>(userAchievements.map((ua: any) => [ua.achievementId, ua.unlockedAt]));
 
     // Check eligibility for each achievement
     const achievementsWithStatus = await Promise.all(
@@ -246,7 +246,7 @@ export async function GET() {
           category: a.category,
           criteria: a.criteria,
           unlocked: isUnlocked,
-          unlockedAt: unlockedMap.get(a.id)?.toISOString() || null,
+          unlockedAt: (unlockedMap.get(a.id) as any)?.toISOString() || null,
           eligible,
           currentProgress,
         };

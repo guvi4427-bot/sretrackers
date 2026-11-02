@@ -247,11 +247,11 @@
   }
 
   /* ---- Glow Effects ---- */
-  .glow-blue { box-shadow: 0 0 20px rgba(59, 130, 246, 0.35); }
-  .glow-gold { box-shadow: 0 0 20px rgba(212, 160, 23, 0.35); }
-  .glow-xp { box-shadow: 0 0 20px rgba(251, 191, 36, 0.35); }
-  .glow-streak { box-shadow: 0 0 20px rgba(239, 68, 68, 0.3); }
-  .glow-rank { box-shadow: 0 0 20px rgba(139, 92, 246, 0.3); }
+  .glow-blue { box-shadow: 0 4px 12px rgba(37, 99, 235, 0.12); }
+  .glow-gold { box-shadow: 0 4px 12px rgba(212, 160, 23, 0.12); }
+  .glow-xp { box-shadow: 0 4px 12px rgba(245, 158, 11, 0.12); }
+  .glow-streak { box-shadow: 0 4px 12px rgba(239, 68, 68, 0.12); }
+  .glow-rank { box-shadow: 0 4px 12px rgba(139, 92, 246, 0.12); }
   .glow-blue-sm { box-shadow: 0 0 10px rgba(59, 130, 246, 0.2); }
 
   /* ---- Gradient Presets ---- */

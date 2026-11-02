@@ -1,14 +1,30 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { ACHIEVEMENT_DEFS } from '@/lib/gamification';
+import { requireAdmin } from '@/lib/admin-auth';
 
 /**
  * Sync all achievements from ACHIEVEMENT_DEFS into the database.
  * Uses upsert by key so existing achievements are updated and missing ones are created.
- * This is safe to run multiple times — no duplicates, no data loss.
+ * Protected by admin authorization.
  */
-export async function POST() {
+export async function POST(request: Request) {
   try {
+    const adminCheck = await requireAdmin();
+    if ('error' in adminCheck) {
+      // Allow internal invocation via CRON_SECRET if automated
+      const authHeader = request.headers.get('authorization');
+      const cronSecret = process.env.CRON_SECRET;
+      const isInternal = Boolean(cronSecret && authHeader === `Bearer ${cronSecret}`);
+
+      if (!isInternal) {
+        return NextResponse.json(
+          { error: adminCheck.error!.message },
+          { status: adminCheck.error!.status }
+        );
+      }
+    }
+
     let created = 0;
     let updated = 0;
 

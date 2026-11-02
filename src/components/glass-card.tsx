@@ -9,28 +9,31 @@ interface GlassCardProps extends HTMLAttributes<HTMLDivElement> {
 }
 
 const variantClasses = {
-  // Primary 1: Frosted glass - standard frosted look
-  default: 'backdrop-blur-xl bg-white/70 dark:bg-black/40 border border-black/5 dark:border-white/10 rounded-xl shadow-sm',
-  sm: 'backdrop-blur-xl bg-white/70 dark:bg-black/40 border border-black/5 dark:border-white/10 rounded-lg shadow-sm',
-  // Primary 1 (intense): Frosted glass - more blur and opacity
-  intense: 'backdrop-blur-2xl bg-white/80 dark:bg-black/60 border border-black/5 dark:border-white/10 rounded-xl shadow-md',
-  // Primary 2: Glassmorphism - gradient bg overlay + colored border glow
-  glassmorphism: 'backdrop-blur-xl bg-gradient-to-br from-white/60 via-white/40 to-blue-500/10 dark:from-black/50 dark:via-blue-900/20 dark:to-indigo-900/10 border border-blue-200/30 dark:border-blue-400/20 rounded-xl shadow-lg shadow-blue-500/5 dark:shadow-blue-500/10',
-  // Secondary 1: Liquid glass - soft gradient shift + no hard border + gentle shadow
-  liquid: 'backdrop-blur-2xl bg-gradient-to-br from-white/50 via-white/30 to-transparent dark:from-white/10 dark:via-blue-500/5 dark:to-transparent border border-white/20 dark:border-white/5 rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.08)] dark:shadow-[0_8px_32px_rgba(0,0,0,0.3)]',
-  // Secondary 2: Glowing glass - colored border glow + inner glow
-  glowing: 'backdrop-blur-xl bg-white/60 dark:bg-blue-950/40 border border-blue-300/40 dark:border-blue-400/30 rounded-xl shadow-[0_0_15px_rgba(59,130,246,0.15),inset_0_1px_0_rgba(255,255,255,0.1)] dark:shadow-[0_0_20px_rgba(59,130,246,0.2),inset_0_1px_0_rgba(255,255,255,0.05)]',
-  // Accent: Deep glass - heavy blur + deep dark bg + strong border contrast
-  deep: 'backdrop-blur-3xl bg-white/90 dark:bg-black/70 border border-black/10 dark:border-blue-400/30 rounded-xl shadow-xl dark:shadow-blue-900/20',
+  // Clean, modern cards with crisp borders and subtle translucent surface
+  default:
+    'backdrop-blur-md bg-white/80 dark:bg-slate-900/75 border border-slate-200/80 dark:border-slate-800/80 rounded-xl shadow-xs transition-colors',
+  sm:
+    'backdrop-blur-md bg-white/80 dark:bg-slate-900/75 border border-slate-200/80 dark:border-slate-800/80 rounded-lg shadow-xs transition-colors',
+  intense:
+    'backdrop-blur-lg bg-white/95 dark:bg-slate-900/90 border border-slate-200 dark:border-slate-800 rounded-xl shadow-sm transition-colors',
+  glassmorphism:
+    'backdrop-blur-md bg-white/85 dark:bg-slate-900/80 border border-blue-500/15 dark:border-blue-400/15 rounded-xl shadow-xs transition-colors',
+  liquid:
+    'backdrop-blur-md bg-white/90 dark:bg-slate-900/85 border border-slate-200/70 dark:border-slate-800/70 rounded-xl shadow-sm transition-colors',
+  glowing:
+    'backdrop-blur-md bg-white/90 dark:bg-slate-900/85 border border-blue-500/20 dark:border-blue-400/20 rounded-xl shadow-xs transition-colors',
+  deep:
+    'backdrop-blur-xl bg-white/95 dark:bg-slate-950/90 border border-slate-300/80 dark:border-slate-800 rounded-xl shadow-md transition-colors',
 };
 
+// Refined, professional hover states (subtle borders and crisp depth rather than loud neon halos)
 const glowClasses = {
-  blue: 'hover:shadow-[0_0_25px_rgba(37,99,235,0.35)]',
-  xp: 'hover:shadow-[0_0_25px_rgba(245,158,11,0.35)]',
-  streak: 'hover:shadow-[0_0_25px_rgba(239,68,68,0.3)]',
-  rank: 'hover:shadow-[0_0_25px_rgba(139,92,246,0.3)]',
-  gold: 'hover:shadow-[0_0_25px_rgba(212,160,23,0.35)]',
-  none: '',
+  blue: 'hover:border-blue-500/40 hover:shadow-xs',
+  xp: 'hover:border-amber-500/40 hover:shadow-xs',
+  streak: 'hover:border-red-500/40 hover:shadow-xs',
+  rank: 'hover:border-indigo-500/40 hover:shadow-xs',
+  gold: 'hover:border-amber-400/40 hover:shadow-xs',
+  none: 'hover:border-slate-300 dark:hover:border-slate-700',
 };
 
 const GlassCard = forwardRef<HTMLDivElement, GlassCardProps>(
@@ -41,7 +44,7 @@ const GlassCard = forwardRef<HTMLDivElement, GlassCardProps>(
         className={cn(
           variantClasses[variant],
           glowClasses[hoverGlow],
-          'transition-all duration-300',
+          'transition-all duration-200',
           className
         )}
         {...props}

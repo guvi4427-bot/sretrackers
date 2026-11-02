@@ -12,9 +12,14 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Check admin role
+    // Require admin role
     const adminCheck = await requireAdmin();
-    const isAdmin = !('error' in adminCheck);
+    if ('error' in adminCheck) {
+      return NextResponse.json(
+        { error: adminCheck.error!.message },
+        { status: adminCheck.error!.status }
+      );
+    }
 
     const body = await request.json();
     const { userId, amount, reason, category } = body;
@@ -55,13 +60,11 @@ export async function POST(request: Request) {
       return [gain, updated] as const;
     });
 
-    if (isAdmin) {
-      await logAudit(session.user.id, 'award_xp', userId, {
-        amount,
-        reason,
-        category,
-      });
-    }
+    await logAudit(session.user.id, 'award_xp', userId, {
+      amount,
+      reason,
+      category,
+    });
 
     return NextResponse.json({
       success: true,

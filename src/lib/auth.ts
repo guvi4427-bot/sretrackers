@@ -3,6 +3,16 @@ import CredentialsProvider from "next-auth/providers/credentials";
 import { db } from "@/lib/db";
 import bcrypt from "bcryptjs";
 
+const nextAuthSecret =
+  process.env.NEXTAUTH_SECRET ||
+  (process.env.NODE_ENV === "production"
+    ? undefined
+    : "dev-only-secret-key-replace-in-production");
+
+if (!nextAuthSecret && process.env.NODE_ENV === "production") {
+  console.error("FATAL: NEXTAUTH_SECRET is not configured in production environment!");
+}
+
 export const authOptions: NextAuthOptions & { trustHost?: boolean } = {
   providers: [
     CredentialsProvider({
@@ -56,7 +66,7 @@ export const authOptions: NextAuthOptions & { trustHost?: boolean } = {
     },
   },
   pages: { signIn: "/login" },
-  secret: process.env.NEXTAUTH_SECRET || 'sre-platform-insecure-secret-please-set-nextauth-secret-env',
+  secret: nextAuthSecret,
   trustHost: true,
   debug: false,
 };

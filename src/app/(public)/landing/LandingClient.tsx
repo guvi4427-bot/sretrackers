@@ -70,7 +70,7 @@ const STATS = [
   { value: 'Free', label: 'Forever', icon: Sparkles },
 ];
 
-const fadeUp = {
+const fadeUp: any = {
   hidden: { opacity: 0, y: 20 },
   visible: (i: number) => ({
     opacity: 1,

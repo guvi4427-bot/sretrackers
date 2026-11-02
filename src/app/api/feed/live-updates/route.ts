@@ -280,10 +280,10 @@ export async function GET(req: Request) {
     const workoutBookmarks = !isGuest && allWorkoutIds.length > 0 ? await db.liveUpdateBookmark.groupBy({ by: ['entityId'], where: { entityType: 'fitness_workout', entityId: { in: allWorkoutIds } }, _count: true }) : [];
     const workoutUserBookmarks = !isGuest && allWorkoutIds.length > 0 ? await db.liveUpdateBookmark.findMany({ where: { entityType: 'fitness_workout', entityId: { in: allWorkoutIds }, userId: myUserId }, select: { entityId: true } }) : [];
     const workoutComments = allWorkoutIds.length > 0 ? await db.liveUpdateComment.groupBy({ by: ['entityId'], where: { entityType: 'fitness_workout', entityId: { in: allWorkoutIds } }, _count: true }) : [];
-    const workoutCommentCountMap = new Map(workoutComments.map(c => [c.entityId, c._count]));
-    const workoutLikeCountMap = new Map(workoutLikes.map(l => [l.entityId, l._count]));
-    const workoutRepostCountMap = new Map(workoutReposts.map(r => [r.entityId, r._count]));
-    const workoutBookmarkCountMap = new Map(workoutBookmarks.map(b => [b.entityId, b._count]));
+    const workoutCommentCountMap = new Map<string, any>(workoutComments.map((c: any) => [c.entityId, c._count]));
+    const workoutLikeCountMap = new Map<string, any>(workoutLikes.map((l: any) => [l.entityId, l._count]));
+    const workoutRepostCountMap = new Map<string, any>(workoutReposts.map((r: any) => [r.entityId, r._count]));
+    const workoutBookmarkCountMap = new Map<string, any>(workoutBookmarks.map((b: any) => [b.entityId, b._count]));
     const workoutUserLikeSet = new Set(workoutUserLikes.map(l => l.entityId));
     const workoutUserRepostSet = new Set(workoutUserReposts.map(r => r.entityId));
     const workoutUserBookmarkSet = new Set(workoutUserBookmarks.map(b => b.entityId));

@@ -337,8 +337,8 @@ export default function OnboardingClient() {
             <div className="flex justify-between mt-8">
               <Button variant="ghost" onClick={() => setStep(2)} className="text-muted-foreground hover:text-foreground hover:bg-accent"><ArrowLeft size={18} className="mr-2" />{t('common.back')}</Button>
               <div className="flex gap-3">
-                <Button variant="ghost" onClick={() => { hasFitness ? setStep(4) : handleComplete(); }} className="text-muted-foreground hover:text-foreground">{t('common.skip')}</Button>
-                <Button onClick={() => { hasFitness ? setStep(4) : handleComplete(); }} className="gradient-blue text-white font-semibold h-11 px-6 rounded-lg">
+                <Button variant="ghost" onClick={() => { if (hasFitness) { setStep(4); } else { handleComplete(); } }} className="text-muted-foreground hover:text-foreground">{t('common.skip')}</Button>
+                <Button onClick={() => { if (hasFitness) { setStep(4); } else { handleComplete(); } }} className="gradient-blue text-white font-semibold h-11 px-6 rounded-lg">
                   {hasFitness ? t('common.next') : t('onboarding.complete')} <ArrowRight size={18} className="ml-2" />
                 </Button>
               </div>

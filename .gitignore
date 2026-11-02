@@ -24,8 +24,11 @@ yarn-error.log*
 bun-debug.log*
 
 # local env files
+.env
 .env*.local
 .env.production
+.env*
+!.env*.example
 
 # vercel
 .vercel
@@ -42,5 +45,4 @@ deploy-*.log
 .last-deploy-url
 logs/
 db/custom.db
-.env*
 workspace-extract/

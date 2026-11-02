@@ -18,7 +18,7 @@ export async function GET(request: Request) {
   const providedSecret = searchParams.get('secret') || authHeader?.replace('Bearer ', '');
 
   // Determine mode: cron (all users) vs client (single user)
-  const isCronCall = !!providedSecret && (!cronSecret || providedSecret === cronSecret);
+  const isCronCall = Boolean(cronSecret && providedSecret && providedSecret === cronSecret);
 
   let targetUserId: string | null = null;
 
